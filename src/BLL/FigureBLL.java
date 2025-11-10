@@ -12,10 +12,9 @@ public class FigureBLL {
     private FigureDAL dal = new FigureDAL();
     private GioHangBLL gioHangBLL = new GioHangBLL();
     private DonHangBLL donHangBLL = new DonHangBLL();
-    private double phanTramGiam = 0;
 
     public List<FigureDTO> layTatCa() {
-        return dal.layTatCa(); // GỌI DAL, KHÔNG CÓ SQL
+        return dal.layTatCa();
     }
 
     public List<FigureDTO> timKiemNangCao(String loai, Double minGia, Double maxGia, String kichThuoc) {
@@ -46,20 +45,19 @@ public class FigureBLL {
     }
 
     public double kiemTraMaKhuyenMai(String ma) {
-        return donHangBLL.kiemTraMaKhuyenMai(ma); // GỌI DonHangDAL
+        return donHangBLL.kiemTraMaKhuyenMai(ma);
     }
 
-    public DonHangDTO thanhToan(int maKhachHang, int maNhanVien, double phanTramGiam) {
-        List<GioHangItemDTO> gioHang = gioHangBLL.getGioHang();
-        if (gioHang.isEmpty()) return null;
+    public DonHangDTO thanhToan(int maNhanVien, String phuongThucTT, String maKhuyenMai) {
+    List<GioHangItemDTO> gioHang = gioHangBLL.getGioHang();
+    if (gioHang.isEmpty()) return null;
 
-        DonHangDTO donHang = donHangBLL.thanhToan(maKhachHang, maNhanVien, phanTramGiam, new ArrayList<>(gioHang));
-        if (donHang != null) {
-            gioHangBLL.xoaToanBoGio();
-            this.phanTramGiam = 0;
-        }
-        return donHang;
+    DonHangDTO donHang = donHangBLL.thanhToan(maNhanVien, phuongThucTT, maKhuyenMai, new ArrayList<>(gioHang));
+    if (donHang != null) {
+        gioHangBLL.xoaToanBoGio();
     }
+    return donHang;
+}
 
     public FigureDTO timTheoId(int id) {
         return dal.timTheoId(id);

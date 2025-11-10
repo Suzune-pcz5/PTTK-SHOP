@@ -1,8 +1,8 @@
+// BLL/NguoiDungBLL.java
 package BLL;
 
 import DAL.NguoiDungDAL;
 import DTO.NguoiDungDTO;
-
 import java.util.List;
 
 public class NguoiDungBLL {
@@ -10,7 +10,7 @@ public class NguoiDungBLL {
 
     public boolean dangKy(NguoiDungDTO nguoiDung) {
         if (dal.kiemTraTenDangNhap(nguoiDung.getTenDangNhap())) {
-            return false; // Tên đăng nhập đã tồn tại
+            return false;
         }
         return dal.luuNguoiDung(nguoiDung);
     }
@@ -25,5 +25,18 @@ public class NguoiDungBLL {
 
     public boolean xoaNguoiDung(int maNguoiDung) {
         return dal.xoaNguoiDung(maNguoiDung);
+    }
+
+    // KIỂM TRA DANH TÍNH
+    public boolean kiemTraDanhTinh(String tenDangNhap, String email) {
+        return dal.kiemTraDanhTinh(tenDangNhap, email);
+    }
+
+    // ĐỔI MẬT KHẨU (chỉ cần tên + mk mới)
+    public boolean doiMatKhau(String tenDangNhap, String matKhauMoi) {
+        NguoiDungDTO nd = new NguoiDungDTO();
+        nd.setTenDangNhap(tenDangNhap);
+        nd.setMatKhau(matKhauMoi);
+        return dal.capNhatMatKhau(nd);
     }
 }

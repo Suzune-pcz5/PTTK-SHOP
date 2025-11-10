@@ -1,3 +1,4 @@
+// FORM/MainUI.java
 package FORM;
 
 import BLL.FigureBLL;
@@ -19,7 +20,7 @@ import java.awt.event.ActionListener;
 import java.util.EventObject;
 import java.util.List;
 
-public class FigureUI extends JFrame {
+public class MainUI extends JFrame {
     private JTable tblDanhSach, tblGioHang;
     private JTextField txtSoLuong, txtMaKM, txtTenDangNhap, txtMatKhau, txtTenDangKy, txtMatKhauDangKy;
     private JTextField txtMinGia, txtMaxGia;
@@ -31,28 +32,53 @@ public class FigureUI extends JFrame {
     private double phanTramGiam = 0;
     private NguoiDungDTO nguoiDungHienTai = null;
     private JDialog loginDialog;
+    // THÊM FIELD MỚI
+    private JLabel lblTenNguoiDung; // LABEL HIỂN THỊ TÊN
 
-    public FigureUI() {
+    public MainUI(NguoiDungDTO nd) {
+        this.nguoiDungHienTai = nd;
         initComponents();
+        hienThiTenNguoiDung(); // HIỂN THỊ TÊN
     }
 
     private void initComponents() {
-        setTitle("🧸 Cửa Hàng Figure");
+        setTitle("Cửa Hàng Figure");
         setSize(950, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(new Color(240, 248, 255));
 
-        add(createPanelTimKiem(), BorderLayout.NORTH);
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.add(createPanelTimKiem(), BorderLayout.CENTER);
+
+        add(headerPanel, BorderLayout.NORTH);
         add(createPanelDanhSach(), BorderLayout.WEST);
         add(createPanelChucNang(), BorderLayout.CENTER);
         add(createPanelKetQua(), BorderLayout.SOUTH);
 
         taiDanhSach();
         capNhatGioHang();
-        hienThiDangNhap();
         setLocationRelativeTo(null);
         setVisible(true);
+    }
+
+    // THÊM HÀM HIỂN THỊ TÊN
+    private void hienThiTenNguoiDung() {
+        lblTenNguoiDung = new JLabel();
+        lblTenNguoiDung.setFont(new Font("Arial", Font.BOLD, 14));
+        lblTenNguoiDung.setForeground(Color.BLUE);
+
+        if (nguoiDungHienTai != null) {
+            lblTenNguoiDung.setText("Xin chào, " + nguoiDungHienTai.getTenDangNhap());
+        } else {
+            lblTenNguoiDung.setText("Khách");
+        }
+
+        JPanel panelTopRight = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        panelTopRight.add(lblTenNguoiDung);
+
+        // THÊM VÀO HEADER (PHÍA TRÊN PANEL TÌM KIẾM)
+        ((JPanel) getContentPane().getComponent(0)).add(panelTopRight, BorderLayout.NORTH);
     }
 
     private JPanel createPanelTimKiem() {
@@ -92,20 +118,16 @@ public class FigureUI extends JFrame {
     private void timKiemNangCao() {
         String loai = (String) cbLoai.getSelectedItem();
         if ("Tất cả".equals(loai)) loai = null;
-
         Double minGia = null;
         try {
             if (!txtMinGia.getText().isEmpty()) minGia = Double.parseDouble(txtMinGia.getText());
         } catch (NumberFormatException ignored) {}
-
         Double maxGia = null;
         try {
             if (!txtMaxGia.getText().isEmpty()) maxGia = Double.parseDouble(txtMaxGia.getText());
         } catch (NumberFormatException ignored) {}
-
         String kichThuoc = (String) cbKichThuoc.getSelectedItem();
         if ("Tất cả".equals(kichThuoc)) kichThuoc = null;
-
         List<FigureDTO> ketQua = bll.timKiemNangCao(loai, minGia, maxGia, kichThuoc);
         capNhatBangDanhSach(ketQua);
     }
@@ -119,7 +141,6 @@ public class FigureUI extends JFrame {
         tblDanhSach = new JTable();
         JScrollPane scrollPane = new JScrollPane(tblDanhSach);
         panel.add(scrollPane, BorderLayout.CENTER);
-
         return panel;
     }
 
@@ -197,7 +218,6 @@ public class FigureUI extends JFrame {
         txtKetQua.setEditable(false);
         JScrollPane scrollKetQua = new JScrollPane(txtKetQua);
         panel.add(scrollKetQua, BorderLayout.CENTER);
-
         return panel;
     }
 
@@ -212,7 +232,6 @@ public class FigureUI extends JFrame {
             model.addRow(new Object[]{gb.getId(), gb.getTen(), gb.getLoai(), gb.getGia(), gb.getKichThuoc(), gb.getSoLuong(), "Xem"});
         }
         tblDanhSach.setModel(model);
-
         TableColumn buttonColumn = tblDanhSach.getColumnModel().getColumn(6);
         buttonColumn.setCellRenderer(new ButtonRenderer());
         buttonColumn.setCellEditor(new ButtonEditor(new JCheckBox(), danhSach));
@@ -285,103 +304,42 @@ public class FigureUI extends JFrame {
             return;
         }
 
-        int maKhachHang = nguoiDungHienTai.getMaNguoiDung();
-        int maNhanVien = 1; // Giả sử mã nhân viên mặc định là 1
+        int maNhanVien = nguoiDungHienTai.getMaNguoiDung();
 
-        DonHangDTO donHang = bll.thanhToan(maKhachHang, maNhanVien, phanTramGiam);
+        String[] options = {"TienMat", "ChuyenKhoan", "The", "ViDienTu"};
+        String phuongThuc = (String) JOptionPane.showInputDialog(
+            this, "Chọn phương thức thanh toán:", "Thanh toán",
+            JOptionPane.QUESTION_MESSAGE, null, options, options[0]
+        );
+
+        if (phuongThuc == null) {
+            JOptionPane.showMessageDialog(this, "Bạn chưa chọn phương thức thanh toán.");
+            return;
+        }
+
+        String maKM = txtMaKM.getText().trim();
+        if (maKM.isEmpty()) maKM = null;
+
+        DonHangDTO donHang = bll.thanhToan(maNhanVien, phuongThuc, maKM);
+
         if (donHang != null) {
-            StringBuilder sb = new StringBuilder("Đơn hàng đã thanh toán:\n");
+            StringBuilder sb = new StringBuilder("ĐƠN HÀNG ĐÃ THANH TOÁN:\n");
             sb.append("Mã đơn: ").append(donHang.getMaDonHang()).append("\n");
-            sb.append("Tổng tiền: ").append(donHang.getTongTien()).append(" VND\n");
+            sb.append("Phương thức: ").append(donHang.getPhuongThucTT()).append("\n");
+            sb.append("Tổng tiền: ").append(String.format("%.0f", donHang.getTongTien())).append(" VND\n");
+            if (donHang.getMaKhuyenMai() != null) {
+                sb.append("Mã KM: ").append(donHang.getMaKhuyenMai()).append("\n");
+            }
             txtKetQua.setText(sb.toString());
+
             capNhatGioHang();
             taiDanhSach();
             phanTramGiam = 0;
             txtMaKM.setText("");
+            JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
         } else {
-            JOptionPane.showMessageDialog(this, "Thanh toán thất bại.");
+            JOptionPane.showMessageDialog(this, "Thanh toán thất bại. Vui lòng kiểm tra lại.");
         }
-    }
-
-    private void hienThiDangNhap() {
-        loginDialog = new JDialog(this, "Đăng Nhập / Đăng Ký", true);
-        loginDialog.setSize(300, 200);
-        loginDialog.setLayout(new GridLayout(5, 2, 5, 5));
-        loginDialog.setLocationRelativeTo(this);
-
-        loginDialog.add(new JLabel("Tên đăng nhập:"));
-        txtTenDangNhap = new JTextField();
-        loginDialog.add(txtTenDangNhap);
-
-        loginDialog.add(new JLabel("Mật khẩu:"));
-        txtMatKhau = new JPasswordField();
-        loginDialog.add(txtMatKhau);
-
-        JButton btnDangNhap = new JButton("Đăng nhập");
-        btnDangNhap.addActionListener(e -> dangNhap());
-        loginDialog.add(btnDangNhap);
-
-        JButton btnDangKy = new JButton("Đăng ký");
-        btnDangKy.addActionListener(e -> hienThiDangKy());
-        loginDialog.add(btnDangKy);
-
-        loginDialog.setVisible(true);
-    }
-
-    private void dangNhap() {
-        String ten = txtTenDangNhap.getText();
-        String mk = txtMatKhau.getText();
-        NguoiDungDTO nd = nguoiDungBLL.dangNhap(ten, mk);
-        if (nd != null) {
-            nguoiDungHienTai = nd;
-            loginDialog.dispose();
-            if ("NhanVien".equals(nd.getVaiTro())) {
-                hienThiGiaoDienAdmin();
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Đăng nhập thất bại.");
-        }
-    }
-
-    private void hienThiDangKy() {
-        JDialog dangKyDialog = new JDialog(this, "Đăng Ký", true);
-        dangKyDialog.setSize(300, 150);
-        dangKyDialog.setLayout(new GridLayout(3, 2, 5, 5));
-
-        dangKyDialog.add(new JLabel("Tên đăng nhập:"));
-        txtTenDangKy = new JTextField();
-        dangKyDialog.add(txtTenDangKy);
-
-        dangKyDialog.add(new JLabel("Mật khẩu:"));
-        txtMatKhauDangKy = new JPasswordField();
-        dangKyDialog.add(txtMatKhauDangKy);
-
-        JButton btnXacNhan = new JButton("Xác nhận");
-        btnXacNhan.addActionListener(e -> dangKy());
-        dangKyDialog.add(btnXacNhan);
-
-        dangKyDialog.setLocationRelativeTo(this);
-        dangKyDialog.setVisible(true);
-    }
-
-    private void dangKy() {
-        String ten = txtTenDangKy.getText();
-        String mk = txtMatKhauDangKy.getText();
-        NguoiDungDTO nd = new NguoiDungDTO(0, ten, mk, "KhachHang");
-        if (nguoiDungBLL.dangKy(nd)) {
-            JOptionPane.showMessageDialog(this, "Đăng ký thành công!");
-            txtTenDangNhap.setText(ten);
-            txtMatKhau.setText(mk);
-           
-        } else {
-            JOptionPane.showMessageDialog(this, "Đăng ký thất bại. Tên đăng nhập đã tồn tại.");
-        }
-    }
-
-    private void hienThiGiaoDienAdmin() {
-        // Code cho giao diện admin (AdminUI) ở đây
-        // Ví dụ: new AdminUI().setVisible(true);
-        // this.dispose(); // Đóng giao diện khách hàng
     }
 
     private class ButtonRenderer implements TableCellRenderer {
@@ -413,16 +371,16 @@ public class FigureUI extends JFrame {
                     } else {
                         System.out.println("currentFigure is null");
                     }
-                    fireEditingStopped(); // Kết thúc quá trình chỉnh sửa
+                    fireEditingStopped();
                 }
             });
-            setClickCountToStart(1); // Cho phép nhấp một lần để kích hoạt
+            setClickCountToStart(1);
         }
 
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
             if (row >= 0 && row < dataList.size()) {
-                currentFigure = dataList.get(row); // Lấy FigureDTO dựa trên chỉ số hàng
+                currentFigure = dataList.get(row);
             } else {
                 currentFigure = null;
                 System.out.println("Row index out of bounds: " + row);
@@ -433,7 +391,7 @@ public class FigureUI extends JFrame {
 
         @Override
         public Object getCellEditorValue() {
-            return currentFigure; // Trả về giá trị hiện tại (không cần thiết trong trường hợp này)
+            return currentFigure;
         }
 
         @Override
@@ -447,9 +405,5 @@ public class FigureUI extends JFrame {
             isPushed = false;
             super.cancelCellEditing();
         }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new FigureUI());
     }
 }

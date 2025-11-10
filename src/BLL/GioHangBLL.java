@@ -14,8 +14,8 @@ public class GioHangBLL {
     public boolean themVaoGio(int figureId, int soLuong) {
         FigureDTO gb = figureDAL.timTheoId(figureId);
         if (gb != null && gb.getSoLuong() >= soLuong) {
-            gioHang.add(new GioHangItemDTO(gb, soLuong, gb.getGia() * soLuong));
-            figureDAL.capNhatSoLuong(figureId, soLuong); // TRỪ KHO
+            gioHang.add(new GioHangItemDTO(gb, soLuong, gb.getGia()));
+            figureDAL.capNhatSoLuong(figureId, soLuong); // Trừ kho tạm
             return true;
         }
         return false;
@@ -24,7 +24,7 @@ public class GioHangBLL {
     public boolean xoaKhoiGio(int figureId) {
         for (GioHangItemDTO item : new ArrayList<>(gioHang)) {
             if (item.getFigure().getId() == figureId) {
-                figureDAL.capNhatSoLuong(figureId, -item.getSoLuong()); // TRẢ LẠI KHO
+                figureDAL.capNhatSoLuong(figureId, -item.getSoLuong()); // Trả lại kho
                 gioHang.remove(item);
                 return true;
             }

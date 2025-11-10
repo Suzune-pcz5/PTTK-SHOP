@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DBConnection {
-    private static final String URL = "jdbc:mysql://localhost:3306/mahirushop?useSSL=false&serverTimezone=UTC";
+    private static final String URL = "jdbc:mysql://localhost:3306/mahirushop2?useSSL=false&serverTimezone=UTC";
     private static final String USER = "root";
     private static final String PASSWORD = ""; // Mặc định trong XAMPP
     private Connection connection;
