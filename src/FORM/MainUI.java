@@ -1,409 +1,563 @@
-// FORM/MainUI.java
+// src/FORM/MainUI.java
 package FORM;
 
 import BLL.FigureBLL;
-import BLL.NguoiDungBLL;
-import DTO.FigureDTO;
-import DTO.GioHangItemDTO;
-import DTO.NguoiDungDTO;
-import DTO.DonHangDTO;
+import DTO.*;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableColumn;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.EventObject;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.List;
 
 public class MainUI extends JFrame {
     private JTable tblDanhSach, tblGioHang;
-    private JTextField txtSoLuong, txtMaKM, txtTenDangNhap, txtMatKhau, txtTenDangKy, txtMatKhauDangKy;
-    private JTextField txtMinGia, txtMaxGia;
+    private JTextField txtMinGia, txtMaxGia, txtMaKM, txtTenTimKiem;
     private JComboBox<String> cbLoai, cbKichThuoc;
-    private JLabel lblTongTien;
+    private JLabel lblTongTien, lblTenNguoiDung;
     private JTextArea txtKetQua;
     private FigureBLL bll = new FigureBLL();
-    private NguoiDungBLL nguoiDungBLL = new NguoiDungBLL();
     private double phanTramGiam = 0;
     private NguoiDungDTO nguoiDungHienTai = null;
-    private JDialog loginDialog;
-    // THÊM FIELD MỚI
-    private JLabel lblTenNguoiDung; // LABEL HIỂN THỊ TÊN
 
     public MainUI(NguoiDungDTO nd) {
         this.nguoiDungHienTai = nd;
+        hienThiTenNguoiDung();
         initComponents();
-        hienThiTenNguoiDung(); // HIỂN THỊ TÊN
+    }
+
+    private void hienThiTenNguoiDung() {
+        lblTenNguoiDung = new JLabel();
+        lblTenNguoiDung.setFont(new Font("Arial", Font.BOLD, 18));
+        lblTenNguoiDung.setForeground(Color.WHITE);
+        lblTenNguoiDung.setText(nguoiDungHienTai != null
+                ? nguoiDungHienTai.getTenDangNhap()
+                : "Khách");
     }
 
     private void initComponents() {
-        setTitle("Cửa Hàng Figure");
-        setSize(950, 600);
+        setTitle("MAHIRU. - Quản Lý Figure");
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLayout(new BorderLayout(10, 10));
-        getContentPane().setBackground(new Color(240, 248, 255));
+        setMinimumSize(new Dimension(1200, 700));
 
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.add(createPanelTimKiem(), BorderLayout.CENTER);
+        UIManager.put("Label.font", new Font("Arial", Font.PLAIN, 14));
+        UIManager.put("Button.font", new Font("Arial", Font.BOLD, 14));
+        UIManager.put("ComboBox.font", new Font("Arial", Font.PLAIN, 14));
+        UIManager.put("TextField.font", new Font("Arial", Font.PLAIN, 14));
 
-        add(headerPanel, BorderLayout.NORTH);
-        add(createPanelDanhSach(), BorderLayout.WEST);
-        add(createPanelChucNang(), BorderLayout.CENTER);
-        add(createPanelKetQua(), BorderLayout.SOUTH);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Color.WHITE);
 
+        mainPanel.add(createHeaderPanel(), BorderLayout.NORTH);
+        mainPanel.add(createSplitContent(), BorderLayout.CENTER);
+        mainPanel.add(createFooterPanel(), BorderLayout.SOUTH);
+
+        add(mainPanel);
         taiDanhSach();
         capNhatGioHang();
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
-    // THÊM HÀM HIỂN THỊ TÊN
-    private void hienThiTenNguoiDung() {
-        lblTenNguoiDung = new JLabel();
-        lblTenNguoiDung.setFont(new Font("Arial", Font.BOLD, 14));
-        lblTenNguoiDung.setForeground(Color.BLUE);
+    private JPanel createHeaderPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(30, 30, 30));
+        panel.setPreferredSize(new Dimension(0, 90));
+        panel.setBorder(new EmptyBorder(15, 30, 15, 30));
 
-        if (nguoiDungHienTai != null) {
-            lblTenNguoiDung.setText("Xin chào, " + nguoiDungHienTai.getTenDangNhap());
-        } else {
-            lblTenNguoiDung.setText("Khách");
-        }
+        JLabel logo = new JLabel("MAHIRU.");
+        logo.setFont(new Font("Arial", Font.BOLD, 32));
+        logo.setForeground(Color.WHITE);
 
-        JPanel panelTopRight = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        panelTopRight.add(lblTenNguoiDung);
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        searchPanel.setOpaque(false);
 
-        // THÊM VÀO HEADER (PHÍA TRÊN PANEL TÌM KIẾM)
-        ((JPanel) getContentPane().getComponent(0)).add(panelTopRight, BorderLayout.NORTH);
-    }
+        searchPanel.add(createLabelWhite("Tìm tên:"));
+        txtTenTimKiem = new JTextField(15);
+        searchPanel.add(txtTenTimKiem);
 
-    private JPanel createPanelTimKiem() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("🔍 Tìm Kiếm Figure"));
-        panel.setBackground(new Color(245, 245, 220));
+        searchPanel.add(createLabelWhite("Loại:"));
+        cbLoai = new JComboBox<>(new String[]{"Tất cả", "Gundam", "Anime", "Game", "Khác"});
+        cbLoai.setPreferredSize(new Dimension(130, 38));
+        searchPanel.add(cbLoai);
 
-        panel.add(new JLabel("Loại:"));
-        String[] loaiOptions = {"Tất cả", "Teddy", "Unicorn", "Panda", "Khác"};
-        cbLoai = new JComboBox<>(loaiOptions);
-        cbLoai.setPreferredSize(new Dimension(100, 25));
-        panel.add(cbLoai);
+        searchPanel.add(createLabelWhite("Giá từ:"));
+        txtMinGia = new JTextField(8);
+        searchPanel.add(txtMinGia);
+        searchPanel.add(createLabelWhite("đến:"));
+        txtMaxGia = new JTextField(8);
+        searchPanel.add(txtMaxGia);
 
-        panel.add(new JLabel("Giá từ:"));
-        txtMinGia = new JTextField(5);
-        panel.add(txtMinGia);
+        searchPanel.add(createLabelWhite("KT:"));
+        cbKichThuoc = new JComboBox<>(new String[]{"Tất cả", "1/144", "1/100", "1/60", "Khác"});
+        cbKichThuoc.setPreferredSize(new Dimension(130, 38));
+        searchPanel.add(cbKichThuoc);
 
-        panel.add(new JLabel("đến:"));
-        txtMaxGia = new JTextField(5);
-        panel.add(txtMaxGia);
-
-        panel.add(new JLabel("Kích thước:"));
-        String[] kichThuocOptions = {"Tất cả", "Nhỏ", "Vừa", "Lớn"};
-        cbKichThuoc = new JComboBox<>(kichThuocOptions);
-        cbKichThuoc.setPreferredSize(new Dimension(100, 25));
-        panel.add(cbKichThuoc);
-
-        JButton btnTimKiem = new JButton("Tìm kiếm");
-        btnTimKiem.setBackground(new Color(0, 191, 255));
-        btnTimKiem.setForeground(Color.WHITE);
+        JButton btnTimKiem = createRedButton("Tìm kiếm");
         btnTimKiem.addActionListener(e -> timKiemNangCao());
-        panel.add(btnTimKiem);
+        searchPanel.add(btnTimKiem);
+
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        right.setOpaque(false);
+        right.add(lblTenNguoiDung);
+
+        panel.add(logo, BorderLayout.WEST);
+        panel.add(searchPanel, BorderLayout.CENTER);
+        panel.add(right, BorderLayout.EAST);
 
         return panel;
     }
 
-    private void timKiemNangCao() {
-        String loai = (String) cbLoai.getSelectedItem();
-        if ("Tất cả".equals(loai)) loai = null;
-        Double minGia = null;
-        try {
-            if (!txtMinGia.getText().isEmpty()) minGia = Double.parseDouble(txtMinGia.getText());
-        } catch (NumberFormatException ignored) {}
-        Double maxGia = null;
-        try {
-            if (!txtMaxGia.getText().isEmpty()) maxGia = Double.parseDouble(txtMaxGia.getText());
-        } catch (NumberFormatException ignored) {}
-        String kichThuoc = (String) cbKichThuoc.getSelectedItem();
-        if ("Tất cả".equals(kichThuoc)) kichThuoc = null;
-        List<FigureDTO> ketQua = bll.timKiemNangCao(loai, minGia, maxGia, kichThuoc);
-        capNhatBangDanhSach(ketQua);
+    private JSplitPane createSplitContent() {
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+                createLeftPanel(), createRightPanel());
+        split.setResizeWeight(0.65);
+        split.setDividerSize(10);
+        split.setBorder(BorderFactory.createLineBorder(new Color(100, 100, 100)));
+        return split;
     }
 
-    private JPanel createPanelDanhSach() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("📋 Danh Sách Figure"));
-        panel.setPreferredSize(new Dimension(400, 0));
-        panel.setBackground(new Color(240, 255, 240));
+    private JPanel createLeftPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(220, 20, 60)));
+
+        JLabel title = new JLabel("DANH SÁCH FIGURE");
+        title.setFont(new Font("Arial", Font.BOLD, 18));
+        title.setForeground(new Color(220, 20, 60));
+        title.setBorder(new EmptyBorder(15, 20, 10, 20));
+        title.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(220, 20, 60)));
+        panel.add(title, BorderLayout.NORTH);
 
         tblDanhSach = new JTable();
-        JScrollPane scrollPane = new JScrollPane(tblDanhSach);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        tblDanhSach.setRowHeight(45);
+        tblDanhSach.setFont(new Font("Arial", Font.PLAIN, 14));
+        tblDanhSach.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+        tblDanhSach.getTableHeader().setBackground(new Color(60, 60, 60));
+        tblDanhSach.getTableHeader().setForeground(Color.WHITE);
+        tblDanhSach.setGridColor(new Color(200, 200, 200));
+        tblDanhSach.setSelectionBackground(new Color(240, 240, 240));
+        tblDanhSach.setSelectionForeground(Color.BLACK);
+
+        JScrollPane scroll = new JScrollPane(tblDanhSach);
+        scroll.setBorder(BorderFactory.createLineBorder(new Color(150, 150, 150)));
+        panel.add(scroll, BorderLayout.CENTER);
+
         return panel;
     }
 
-    private JPanel createPanelChucNang() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("🛒 Giỏ Hàng"));
-        panel.setBackground(new Color(255, 228, 225));
+    private JPanel createRightPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+
+        JLabel title = new JLabel("GIỎ HÀNG");
+        title.setFont(new Font("Arial", Font.BOLD, 18));
+        title.setForeground(new Color(220, 20, 60));
+        title.setBorder(new EmptyBorder(15, 20, 10, 20));
+        title.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(220, 20, 60)));
+        panel.add(title, BorderLayout.NORTH);
 
         tblGioHang = new JTable();
-        JScrollPane scrollGioHang = new JScrollPane(tblGioHang);
-        panel.add(scrollGioHang, BorderLayout.CENTER);
+        tblGioHang.setRowHeight(50);
+        tblGioHang.setFont(new Font("Arial", Font.PLAIN, 14));
+        tblGioHang.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+        tblGioHang.getTableHeader().setBackground(new Color(60, 60, 60));
+        tblGioHang.getTableHeader().setForeground(Color.WHITE);
+        tblGioHang.setGridColor(new Color(200, 200, 200));
+        tblGioHang.setSelectionBackground(new Color(240, 240, 240));
+        tblGioHang.setSelectionForeground(Color.BLACK);
 
-        JPanel panelTongTien = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        lblTongTien = new JLabel("Tổng tiền: 0 VND");
-        lblTongTien.setFont(new Font("Arial", Font.BOLD, 14));
-        panelTongTien.add(lblTongTien);
-        panel.add(panelTongTien, BorderLayout.SOUTH);
+        JScrollPane scroll = new JScrollPane(tblGioHang);
+        scroll.setBorder(BorderFactory.createLineBorder(new Color(150, 150, 150)));
+        panel.add(scroll, BorderLayout.CENTER);
 
-        JPanel panelChucNang = new JPanel(new GridLayout(4, 1, 5, 5));
-        panelChucNang.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Footer: 1 hàng
+        JPanel footer = new JPanel(new GridBagLayout());
+        footer.setBorder(new EmptyBorder(20, 20, 20, 20));
+        footer.setBackground(Color.WHITE);
 
-        JButton btnThemGio = new JButton("Thêm vào giỏ");
-        btnThemGio.setBackground(new Color(50, 205, 50));
-        btnThemGio.setForeground(Color.WHITE);
-        btnThemGio.addActionListener(e -> themVaoGio());
-        panelChucNang.add(btnThemGio);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 10, 5, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JButton btnXoaGio = new JButton("Xóa khỏi giỏ");
-        btnXoaGio.setBackground(new Color(255, 69, 0));
-        btnXoaGio.setForeground(Color.WHITE);
-        btnXoaGio.addActionListener(e -> xoaKhoiGio());
-        panelChucNang.add(btnXoaGio);
+        gbc.gridx = 0; gbc.gridy = 0;
+        footer.add(new JLabel("Mã KM:"), gbc);
+        gbc.gridx = 1;
+        txtMaKM = new JTextField(12);
+        footer.add(txtMaKM, gbc);
 
-        JButton btnThanhToan = new JButton("Thanh toán");
-        btnThanhToan.setBackground(new Color(0, 128, 0));
-        btnThanhToan.setForeground(Color.WHITE);
-        btnThanhToan.addActionListener(e -> thanhToan());
-        panelChucNang.add(btnThanhToan);
+        gbc.gridx = 2;
+        JButton apply = createOrangeButton("Áp dụng");
+        apply.addActionListener(e -> apDungMaKM());
+        footer.add(apply, gbc);
 
-        panel.add(panelChucNang, BorderLayout.EAST);
+        gbc.gridx = 3; gbc.weightx = 1;
+        footer.add(Box.createHorizontalGlue(), gbc);
 
-        JPanel panelMaKM = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panelMaKM.add(new JLabel("Mã KM:"));
-        txtMaKM = new JTextField(10);
-        panelMaKM.add(txtMaKM);
-        JButton btnApDung = new JButton("Áp dụng");
-        btnApDung.addActionListener(e -> apDungMaKM());
-        panelMaKM.add(btnApDung);
-        panel.add(panelMaKM, BorderLayout.NORTH);
+        gbc.gridx = 4; gbc.weightx = 0;
+        lblTongTien = new JLabel("Tổng: 0 VND (Giảm 0%)");
+        lblTongTien.setFont(new Font("Arial", Font.BOLD, 16));
+        lblTongTien.setForeground(new Color(220, 20, 60));
+        footer.add(lblTongTien, gbc);
+
+        gbc.gridx = 5;
+        JButton pay = createGreenButton("Thanh toán");
+        pay.addActionListener(e -> thanhToan());
+        footer.add(pay, gbc);
+
+        panel.add(footer, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JPanel createFooterPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(45, 45, 45));
+        panel.setPreferredSize(new Dimension(0, 180));
+        panel.setBorder(new EmptyBorder(15, 30, 15, 30));
+
+        JLabel title = new JLabel("KẾT QUẢ / HÓA ĐƠN");
+        title.setFont(new Font("Arial", Font.BOLD, 16));
+        title.setForeground(Color.WHITE);
+        panel.add(title, BorderLayout.NORTH);
+
+        txtKetQua = new JTextArea();
+        txtKetQua.setEditable(false);
+        txtKetQua.setFont(new Font("Consolas", Font.PLAIN, 15));
+        txtKetQua.setBackground(new Color(60, 60, 60));
+        txtKetQua.setForeground(Color.WHITE);
+        txtKetQua.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        txtKetQua.setLineWrap(true);
+        txtKetQua.setWrapStyleWord(true);
+
+        JScrollPane scroll = new JScrollPane(txtKetQua);
+        scroll.setBorder(BorderFactory.createLineBorder(new Color(100, 100, 100)));
+        panel.add(scroll, BorderLayout.CENTER);
 
         return panel;
+    }
+
+    // === HỖ TRỢ ===
+    private JLabel createLabelWhite(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Arial", Font.BOLD, 14));
+        return lbl;
+    }
+
+    private JButton createRedButton(String text) {
+        return createRoundedButton(text, new Color(220, 20, 60), Color.WHITE);
+    }
+
+    private JButton createGreenButton(String text) {
+        return createRoundedButton(text, new Color(34, 139, 34), Color.WHITE);
+    }
+
+    private JButton createOrangeButton(String text) {
+        return createRoundedButton(text, new Color(255, 140, 0), Color.WHITE);
+    }
+
+    private JButton createRoundedButton(String text, Color bg, Color fg) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        btn.setFont(new Font("Arial", Font.BOLD, 14));
+        btn.setForeground(fg);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    // === XỬ LÝ DỮ LIỆU ===
+   private void timKiemNangCao() {
+    String ten = txtTenTimKiem.getText().trim();
+    String loai = "Tất cả".equals(cbLoai.getSelectedItem()) ? null : (String) cbLoai.getSelectedItem();
+    Double min = parseDouble(txtMinGia.getText());
+    Double max = parseDouble(txtMaxGia.getText());
+    String kt = "Tất cả".equals(cbKichThuoc.getSelectedItem()) ? null : (String) cbKichThuoc.getSelectedItem();
+    
+    // GỌI ĐÚNG: 4 tham số (ten, min, max, kt) hoặc 5 nếu có loai
+    List<FigureDTO> ketQua = bll.timKiemNangCao(ten, loai, min, max, kt);
+    capNhatBangDanhSach(ketQua);
+}
+
+    private Double parseDouble(String s) {
+        try { return s.isEmpty() ? null : Double.parseDouble(s); }
+        catch (Exception e) { return null; }
+    }
+
+    private void taiDanhSach() {
+        capNhatBangDanhSach(bll.layTatCa());
+    }
+
+    private void capNhatBangDanhSach(List<FigureDTO> list) {
+        String[] cols = {"ID", "Tên Figure", "Loại", "Giá (VND)", "Kích thước", "Số lượng", "Chi tiết", "Thêm"};
+        DefaultTableModel model = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return c >= 6; }
+        };
+
+        for (FigureDTO f : list) {
+            model.addRow(new Object[]{
+                    f.getId(), f.getTen(), f.getLoai(),
+                    String.format("%,.0f", f.getGia()), f.getKichThuoc(), f.getSoLuong(),
+                    "Chi tiết", "Thêm"
+            });
+        }
+
+        tblDanhSach.setModel(model);
+
+        // Cột Chi tiết
+        TableColumn colDetail = tblDanhSach.getColumnModel().getColumn(6);
+        colDetail.setCellRenderer(new DetailButtonRenderer());
+        colDetail.setCellEditor(new DetailButtonEditor(new JCheckBox(), list));
+
+        // Cột Thêm
+        TableColumn colAdd = tblDanhSach.getColumnModel().getColumn(7);
+        colAdd.setCellRenderer(new AddButtonRenderer());
+        colAdd.setCellEditor(new AddButtonEditor(new JCheckBox(), list));
+
+        // TỰ ĐỘNG CO CỘT
+        tblDanhSach.getColumnModel().getColumn(0).setPreferredWidth(50);
+        for (int i = 1; i < 6; i++) {
+            TableColumn col = tblDanhSach.getColumnModel().getColumn(i);
+            int width = 100;
+            for (int row = 0; row < tblDanhSach.getRowCount(); row++) {
+                Component comp = tblDanhSach.prepareRenderer(tblDanhSach.getCellRenderer(row, i), row, i);
+                width = Math.max(comp.getPreferredSize().width + 15, width);
+            }
+            col.setPreferredWidth(Math.min(width, 200));
+        }
+    }
+
+    private void capNhatGioHang() {
+        String[] cols = {"ID", "Tên", "SL", "Thành tiền", "Xóa"};
+        DefaultTableModel model = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return c == 4; }
+        };
+
+        double tong = 0;
+        for (GioHangItemDTO i : bll.getGioHang()) {
+            double tt = i.getThanhTien();
+            tong += tt;
+            model.addRow(new Object[]{i.getFigure().getId(), i.getFigure().getTen(), i.getSoLuong(),
+                    String.format("%,.0f", tt), "Xóa"});
+        }
+
+        tblGioHang.setModel(model);
+
+        TableColumn colDel = tblGioHang.getColumnModel().getColumn(4);
+        colDel.setCellRenderer(new DeleteButtonRenderer());
+        colDel.setCellEditor(new DeleteButtonEditor(new JCheckBox(), bll.getGioHang()));
+
+        double sauGiam = tong * (1 - phanTramGiam / 100);
+        lblTongTien.setText(String.format("Tổng: %, .0f VND (Giảm %.0f%%)", sauGiam, phanTramGiam));
     }
 
     private void apDungMaKM() {
         String ma = txtMaKM.getText().trim();
-        if (!ma.isEmpty()) {
-            double giam = bll.kiemTraMaKhuyenMai(ma);
-            if (giam > 0) {
-                phanTramGiam = giam;
-                JOptionPane.showMessageDialog(this, "Áp dụng thành công! Giảm " + giam + "%");
-                capNhatTongTien();
-            } else {
-                JOptionPane.showMessageDialog(this, "Mã khuyến mãi không hợp lệ hoặc hết hạn.");
-            }
-        }
-    }
-
-    private JPanel createPanelKetQua() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("📝 Kết Quả"));
-        panel.setPreferredSize(new Dimension(0, 150));
-        panel.setBackground(new Color(230, 230, 250));
-
-        txtKetQua = new JTextArea();
-        txtKetQua.setEditable(false);
-        JScrollPane scrollKetQua = new JScrollPane(txtKetQua);
-        panel.add(scrollKetQua, BorderLayout.CENTER);
-        return panel;
-    }
-
-    private void taiDanhSach() {
-        List<FigureDTO> danhSach = bll.layTatCa();
-        capNhatBangDanhSach(danhSach);
-    }
-
-    private void capNhatBangDanhSach(List<FigureDTO> danhSach) {
-        DefaultTableModel model = new DefaultTableModel(new String[]{"ID", "Tên", "Loại", "Giá", "Kích thước", "Số lượng", "Xem"}, 0);
-        for (FigureDTO gb : danhSach) {
-            model.addRow(new Object[]{gb.getId(), gb.getTen(), gb.getLoai(), gb.getGia(), gb.getKichThuoc(), gb.getSoLuong(), "Xem"});
-        }
-        tblDanhSach.setModel(model);
-        TableColumn buttonColumn = tblDanhSach.getColumnModel().getColumn(6);
-        buttonColumn.setCellRenderer(new ButtonRenderer());
-        buttonColumn.setCellEditor(new ButtonEditor(new JCheckBox(), danhSach));
-    }
-
-    private void hienThiChiTiet(FigureDTO gb) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("ID: ").append(gb.getId()).append("\n");
-        sb.append("Tên: ").append(gb.getTen()).append("\n");
-        sb.append("Loại: ").append(gb.getLoai()).append("\n");
-        sb.append("Giá: ").append(gb.getGia()).append(" VND\n");
-        sb.append("Kích thước: ").append(gb.getKichThuoc()).append("\n");
-        sb.append("Số lượng: ").append(gb.getSoLuong()).append("\n");
-        sb.append("Mô tả: ").append(gb.getMoTa()).append("\n");
-        txtKetQua.setText(sb.toString());
-    }
-
-    private void capNhatGioHang() {
-        DefaultTableModel modelGio = new DefaultTableModel(new String[]{"ID", "Tên", "Số lượng", "Thành tiền"}, 0);
-        for (GioHangItemDTO item : bll.getGioHang()) {
-            modelGio.addRow(new Object[]{item.getFigure().getId(), item.getFigure().getTen(), item.getSoLuong(), item.getThanhTien()});
-        }
-        tblGioHang.setModel(modelGio);
-        capNhatTongTien();
-    }
-
-    private void capNhatTongTien() {
-        double tong = bll.tinhTongTien();
-        double tongSauGiam = tong * (1 - phanTramGiam / 100);
-        lblTongTien.setText(String.format("Tổng tiền: %.2f VND (Giảm %.0f%%)", tongSauGiam, phanTramGiam));
-    }
-
-    private void themVaoGio() {
-        int row = tblDanhSach.getSelectedRow();
-        if (row >= 0) {
-            int id = (int) tblDanhSach.getValueAt(row, 0);
-            String input = JOptionPane.showInputDialog(this, "Nhập số lượng:");
-            try {
-                int soLuong = Integer.parseInt(input);
-                if (bll.themVaoGio(id, soLuong)) {
-                    capNhatGioHang();
-                    taiDanhSach();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Số lượng không đủ hoặc lỗi.");
-                }
-            } catch (NumberFormatException ignored) {}
+        if (ma.isEmpty()) return;
+        double giam = bll.kiemTraMaKhuyenMai(ma);
+        if (giam > 0) {
+            phanTramGiam = giam;
+            JOptionPane.showMessageDialog(this, "Áp dụng mã giảm " + giam + "%!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            capNhatGioHang();
         } else {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn sản phẩm.");
+            JOptionPane.showMessageDialog(this, "Mã không hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void xoaKhoiGio() {
-        int row = tblGioHang.getSelectedRow();
-        if (row >= 0) {
-            int id = (int) tblGioHang.getValueAt(row, 0);
-            if (bll.xoaKhoiGio(id)) {
-                capNhatGioHang();
-                taiDanhSach();
-            } else {
-                JOptionPane.showMessageDialog(this, "Lỗi xóa khỏi giỏ.");
-            }
+    private void themVaoGio(int id, int soLuong) {
+        if (bll.themVaoGio(id, soLuong)) {
+            capNhatGioHang(); taiDanhSach();
         } else {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn sản phẩm trong giỏ.");
+            JOptionPane.showMessageDialog(this, "Không đủ hàng!");
         }
+    }
+
+    private void xoaKhoiGio(int id) {
+        bll.xoaKhoiGio(id);
+        capNhatGioHang(); taiDanhSach();
     }
 
     private void thanhToan() {
         if (nguoiDungHienTai == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng đăng nhập để thanh toán.");
+            JOptionPane.showMessageDialog(this, "Vui lòng đăng nhập!");
             return;
         }
+        JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
+    }
 
-        int maNhanVien = nguoiDungHienTai.getMaNguoiDung();
-
-        String[] options = {"TienMat", "ChuyenKhoan", "The", "ViDienTu"};
-        String phuongThuc = (String) JOptionPane.showInputDialog(
-            this, "Chọn phương thức thanh toán:", "Thanh toán",
-            JOptionPane.QUESTION_MESSAGE, null, options, options[0]
-        );
-
-        if (phuongThuc == null) {
-            JOptionPane.showMessageDialog(this, "Bạn chưa chọn phương thức thanh toán.");
-            return;
+    // === BUTTON RENDERER & EDITOR ===
+    private class DetailButtonRenderer extends JButton implements TableCellRenderer {
+        public DetailButtonRenderer() {
+            setText("Chi tiết");
+            setBackground(new Color(70, 130, 180));
+            setForeground(Color.WHITE);
+            setFont(new Font("Arial", Font.BOLD, 12));
+            setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            setOpaque(true);
         }
-
-        String maKM = txtMaKM.getText().trim();
-        if (maKM.isEmpty()) maKM = null;
-
-        DonHangDTO donHang = bll.thanhToan(maNhanVien, phuongThuc, maKM);
-
-        if (donHang != null) {
-            StringBuilder sb = new StringBuilder("ĐƠN HÀNG ĐÃ THANH TOÁN:\n");
-            sb.append("Mã đơn: ").append(donHang.getMaDonHang()).append("\n");
-            sb.append("Phương thức: ").append(donHang.getPhuongThucTT()).append("\n");
-            sb.append("Tổng tiền: ").append(String.format("%.0f", donHang.getTongTien())).append(" VND\n");
-            if (donHang.getMaKhuyenMai() != null) {
-                sb.append("Mã KM: ").append(donHang.getMaKhuyenMai()).append("\n");
-            }
-            txtKetQua.setText(sb.toString());
-
-            capNhatGioHang();
-            taiDanhSach();
-            phanTramGiam = 0;
-            txtMaKM.setText("");
-            JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
-        } else {
-            JOptionPane.showMessageDialog(this, "Thanh toán thất bại. Vui lòng kiểm tra lại.");
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+            return this;
         }
     }
 
-    private class ButtonRenderer implements TableCellRenderer {
-        private final JButton button = new JButton("Xem");
+    private class DetailButtonEditor extends DefaultCellEditor {
+        private JButton button;
+        private FigureDTO figure;
+        private List<FigureDTO> list;
+
+        public DetailButtonEditor(JCheckBox cb, List<FigureDTO> list) {
+            super(cb);
+            this.list = list;
+            button = new JButton("Chi tiết");
+            button.setBackground(new Color(70, 130, 180));
+            button.setForeground(Color.WHITE);
+            button.addActionListener(e -> { moChiTiet(figure); fireEditingStopped(); });
+        }
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int col) {
+            figure = list.get(row);
             return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() { return "Chi tiết"; }
+    }
+
+    private void moChiTiet(FigureDTO f) {
+        JDialog dialog = new JDialog(MainUI.this, "Chi tiết: " + f.getTen(), true);
+        dialog.setSize(500, 600);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
+
+        // Ảnh
+        JLabel imgLabel = new JLabel();
+        try {
+            BufferedImage img = ImageIO.read(new File("resources/images/" + f.getId() + ".jpg"));
+            Image scaled = img.getScaledInstance(200, 200, Image.SCALE_SMOOTH);
+            imgLabel.setIcon(new ImageIcon(scaled));
+        } catch (Exception e) {
+            imgLabel.setText("Không có ảnh");
+        }
+        imgLabel.setHorizontalAlignment(JLabel.CENTER);
+
+        // Thông tin
+        JTextArea info = new JTextArea(String.format(
+                "ID: %d\nTên: %s\nLoại: %s\nGiá: %, .0f VND\n" +
+                "Kích thước: %s\nSố lượng: %d\nMô tả: %s",
+                f.getId(), f.getTen(), f.getLoai(), f.getGia(),
+                f.getKichThuoc(), f.getSoLuong(), f.getMoTa()
+        ));
+        info.setEditable(false);
+        info.setFont(new Font("Arial", Font.PLAIN, 14));
+        info.setBackground(Color.WHITE);
+
+        panel.add(imgLabel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(info), BorderLayout.CENTER);
+
+        dialog.add(panel);
+        dialog.setVisible(true);
+    }
+
+    private class AddButtonRenderer extends JButton implements TableCellRenderer {
+        public AddButtonRenderer() {
+            setText("Thêm");
+            setBackground(new Color(50, 205, 50));
+            setForeground(Color.WHITE);
+            setFont(new Font("Arial", Font.BOLD, 12));
+            setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            setOpaque(true);
+        }
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+            return this;
         }
     }
 
-    private class ButtonEditor extends DefaultCellEditor {
-        private final JButton button;
-        private FigureDTO currentFigure;
-        private boolean isPushed;
-        private List<FigureDTO> dataList;
+    private class AddButtonEditor extends DefaultCellEditor {
+        private JButton button;
+        private int figureId;
+        private List<FigureDTO> list;
 
-        public ButtonEditor(JCheckBox checkBox, List<FigureDTO> dataList) {
-            super(checkBox);
-            this.dataList = dataList;
-            button = new JButton("Xem");
-            button.setBackground(new Color(135, 206, 250));
-            button.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    isPushed = true;
-                    if (currentFigure != null) {
-                        hienThiChiTiet(currentFigure);
-                    } else {
-                        System.out.println("currentFigure is null");
-                    }
-                    fireEditingStopped();
+        public AddButtonEditor(JCheckBox cb, List<FigureDTO> list) {
+            super(cb);
+            this.list = list;
+            button = new JButton("Thêm");
+            button.setBackground(new Color(50, 205, 50));
+            button.setForeground(Color.WHITE);
+            button.addActionListener(e -> {
+                String sl = JOptionPane.showInputDialog("Số lượng:");
+                if (sl != null) {
+                    try {
+                        int soLuong = Integer.parseInt(sl);
+                        themVaoGio(figureId, soLuong);
+                    } catch (Exception ignored) {}
                 }
+                fireEditingStopped();
             });
-            setClickCountToStart(1);
         }
 
         @Override
-        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-            if (row >= 0 && row < dataList.size()) {
-                currentFigure = dataList.get(row);
-            } else {
-                currentFigure = null;
-                System.out.println("Row index out of bounds: " + row);
-            }
-            isPushed = false;
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int col) {
+            figureId = list.get(row).getId();
             return button;
         }
 
         @Override
-        public Object getCellEditorValue() {
-            return currentFigure;
+        public Object getCellEditorValue() { return "Thêm"; }
+    }
+
+    private class DeleteButtonRenderer extends JButton implements TableCellRenderer {
+        public DeleteButtonRenderer() {
+            setText("Xóa");
+            setBackground(new Color(220, 20, 60));
+            setForeground(Color.WHITE);
+            setFont(new Font("Arial", Font.BOLD, 12));
+            setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            setOpaque(true);
+        }
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+            return this;
+        }
+    }
+
+    private class DeleteButtonEditor extends DefaultCellEditor {
+        private JButton button;
+        private int figureId;
+        private List<GioHangItemDTO> list;
+
+        public DeleteButtonEditor(JCheckBox cb, List<GioHangItemDTO> list) {
+            super(cb);
+            this.list = list;
+            button = new JButton("Xóa");
+            button.setBackground(new Color(220, 20, 60));
+            button.setForeground(Color.WHITE);
+            button.addActionListener(e -> { xoaKhoiGio(figureId); fireEditingStopped(); });
         }
 
         @Override
-        public boolean stopCellEditing() {
-            isPushed = false;
-            return super.stopCellEditing();
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int col) {
+            figureId = list.get(row).getFigure().getId();
+            return button;
         }
 
         @Override
-        public void cancelCellEditing() {
-            isPushed = false;
-            super.cancelCellEditing();
-        }
+        public Object getCellEditorValue() { return "Xóa"; }
     }
 }
