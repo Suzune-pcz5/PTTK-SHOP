@@ -19,8 +19,10 @@ public class DonHangDAL {
 
     /* ---------- LƯU ĐƠN HÀNG ---------- */
     public boolean luuDonHang(DonHangDTO donHang) {
-        String sqlDonHang = "INSERT INTO donhang (ma_nhan_vien, tong_tien, phuong_thuc_tt, ma_khuyen_mai) VALUES (?, ?, ?, ?)";
+        String sqlDonHang = "INSERT INTO donhang (ma_nhan_vien, tong_tien, phuong_thuc_tt, ma_khuyen_mai, ngay_dat) VALUES (?, ?, ?, ?, ?)";
         String sqlChiTiet = "INSERT INTO chitiet_donhang (donhangId, figureId, so_luong, gia_ban, thanh_tien) VALUES (?, ?, ?, ?, ?)";
+        
+        java.sql.Timestamp ngayDat = new java.sql.Timestamp(System.currentTimeMillis());
 
         try (Connection conn = db.getConnect()) {
             if (conn == null) return false;
@@ -28,9 +30,10 @@ public class DonHangDAL {
 
             try (PreparedStatement psDonHang = conn.prepareStatement(sqlDonHang, Statement.RETURN_GENERATED_KEYS)) {
                 psDonHang.setInt(1, donHang.getMaNhanVien());
-                psDonHang.setDouble(2, donHang.getTongTien());               // DB: INT → Java double
+                psDonHang.setInt(2, (int) donHang.getTongTien());               // DB: INT → Java double
                 psDonHang.setString(3, donHang.getPhuongThucTT());
                 psDonHang.setString(4, donHang.getMaKhuyenMai());
+                psDonHang.setTimestamp(5, ngayDat);
 
                 if (psDonHang.executeUpdate() == 0) {
                     conn.rollback();
@@ -38,7 +41,10 @@ public class DonHangDAL {
                 }
 
                 try (ResultSet rs = psDonHang.getGeneratedKeys()) {
-                    if (rs.next()) donHang.setMaDonHang(rs.getInt(1));
+                    if (rs.next()) {
+                        donHang.setMaDonHang(rs.getInt(1)); // Lấy ID đơn hàng mới
+                        donHang.setNgayDat(new java.sql.Date(ngayDat.getTime())); // Cập nhật ngày cho DTO
+                    }
                 }
 
                 try (PreparedStatement psChiTiet = conn.prepareStatement(sqlChiTiet)) {
@@ -46,8 +52,8 @@ public class DonHangDAL {
                         psChiTiet.setInt(1, donHang.getMaDonHang());
                         psChiTiet.setInt(2, item.getFigureId());
                         psChiTiet.setInt(3, item.getSoLuong());
-                        psChiTiet.setDouble(4, item.getGiaBan());          // DB: INT
-                        psChiTiet.setDouble(5, item.getThanhTien());       // DB: INT
+                        psChiTiet.setInt(4, (int) item.getGiaBan());          // DB: INT
+                        psChiTiet.setInt(5, (int) item.getThanhTien());       // DB: INT
                         psChiTiet.addBatch();
                     }
                     psChiTiet.executeBatch();
@@ -127,7 +133,7 @@ public class DonHangDAL {
                     f.setId(rs.getInt("figureId"));
                     f.setTen(rs.getString("ten"));
                     f.setLoai(rs.getString("loai"));
-                    f.setGia(rs.getDouble("gia"));
+                    f.setGia(rs.getInt("gia"));
                     f.setKichThuoc(rs.getString("kich_thuoc"));
                     f.setSoLuong(rs.getInt("so_luong"));
                     f.setMoTa(rs.getString("mo_ta"));
@@ -135,7 +141,7 @@ public class DonHangDAL {
                     GioHangItemDTO item = new GioHangItemDTO(
                             f,
                             rs.getInt("so_luong"),
-                            rs.getDouble("gia_ban")
+                            rs.getInt("gia_ban")
                     );
                     chiTiet.add(item);
                 }

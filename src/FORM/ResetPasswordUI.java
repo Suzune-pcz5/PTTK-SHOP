@@ -1,9 +1,8 @@
-// DÁN TOÀN BỘ CODE NÀY VÀO FILE LoginUI.java
+// DÁN TOÀN BỘ CODE NÀY VÀO FILE ResetPasswordUI.java
 
 package FORM;
 
 import BLL.NguoiDungBLL;
-import DTO.NguoiDungDTO;
 import javax.swing.*;
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -12,29 +11,44 @@ import java.awt.event.FocusEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
-public class LoginUI extends JFrame {
-    private JTextField txtTenDangNhap;
-    private JPasswordField txtMatKhau;
-    // private JCheckBox chkShowPass; // Bỏ CheckBox
-    private NguoiDungBLL nguoiDungBLL = new NguoiDungBLL();
+public class ResetPasswordUI extends JFrame {
+    private NguoiDungBLL bll = new NguoiDungBLL();
+    private JPasswordField txtMKMoi, txtXacNhanMKMoi;
+    // private JCheckBox chkShowMKMoi, chkShowXacNhan; // Bỏ CheckBox
+    
+    private JFrame loginFrame; 
+    private JFrame forgotFrame; 
+    private String tenDangNhap; 
 
-    public LoginUI() {
+    public ResetPasswordUI(JFrame loginFrame, JFrame forgotFrame, String tenDangNhap) {
+        this.loginFrame = loginFrame;
+        this.forgotFrame = forgotFrame;
+        this.tenDangNhap = tenDangNhap;
         initComponents();
+    }
+    
+    private void quayLaiLogin() {
+        this.dispose(); 
+        this.forgotFrame.dispose(); 
+        if (loginFrame != null) {
+            loginFrame.setVisible(true);
+        }
+    }
+
+    private void initComponents() {
+        setTitle("MahiruShop - Đặt Lại Mật Khẩu");
+        setSize(500, 680); 
+        setLocationRelativeTo(forgotFrame);
+        setLayout(new GridBagLayout());
+        getContentPane().setBackground(new Color(180, 0, 0)); 
+
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); 
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                moMainUIKhongDangNhap(); 
+                quayLaiLogin(); 
             }
         });
-    }
-
-    private void initComponents() {
-        setTitle("MahiruShop - Đăng Nhập");
-        setSize(500, 680);
-        setLocationRelativeTo(null);
-        setLayout(new GridBagLayout());
-        getContentPane().setBackground(new Color(180, 0, 0));
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
@@ -44,7 +58,7 @@ public class LoginUI extends JFrame {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // LOGO
+        // 1. LOGO
         JLabel lblLogo = new JLabel("MahiruShop", JLabel.CENTER);
         lblLogo.setFont(new Font("Segoe UI", Font.BOLD, 42));
         lblLogo.setForeground(Color.BLACK);
@@ -52,78 +66,56 @@ public class LoginUI extends JFrame {
         gbc.insets = new Insets(30, 0, 40, 0);
         panel.add(lblLogo, gbc);
 
-        // Đăng nhập
-        JLabel lblDangNhap = new JLabel("Đăng nhập", JLabel.CENTER);
-        lblDangNhap.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblDangNhap.setForeground(new Color(180, 0, 0));
+        // 2. Tiêu đề
+        JLabel lblTitle = new JLabel("Đặt mật khẩu mới", JLabel.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblTitle.setForeground(new Color(180, 0, 0));
         gbc.gridy = 1; gbc.insets = new Insets(0, 0, 35, 0);
-        panel.add(lblDangNhap, gbc);
+        panel.add(lblTitle, gbc);
 
-        // Tên đăng nhập
-        JLabel lblTen = new JLabel("Tên đăng nhập");
-        lblTen.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        // 3. Mật khẩu mới
+        JLabel lblMKMoi = new JLabel("Mật khẩu mới");
+        lblMKMoi.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 8, 0);
-        gbc.anchor = GridBagConstraints.WEST; 
-        panel.add(lblTen, gbc);
+        gbc.anchor = GridBagConstraints.WEST;
+        panel.add(lblMKMoi, gbc);
 
-        txtTenDangNhap = new JTextField();
-        setupPlaceholder(txtTenDangNhap, "Nhập tên đăng nhập ...");
+        txtMKMoi = new JPasswordField();
+        JPanel passPanelMoi = createPasswordPanel(txtMKMoi, "Nhập mật khẩu mới ...");
         gbc.gridy = 3; gbc.insets = new Insets(0, 0, 0, 0);
-        gbc.anchor = GridBagConstraints.CENTER; 
-        panel.add(txtTenDangNhap, gbc);
+        gbc.anchor = GridBagConstraints.CENTER;
+        panel.add(passPanelMoi, gbc);
 
-        // Mật khẩu
-        JLabel lblMatKhau = new JLabel("Mật khẩu");
-        lblMatKhau.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        // 4. Xác nhận Mật khẩu mới
+        JLabel lblXacNhanMKMoi = new JLabel("Xác nhận mật khẩu mới");
+        lblXacNhanMKMoi.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         gbc.gridy = 4; gbc.insets = new Insets(25, 0, 8, 0);
         gbc.anchor = GridBagConstraints.WEST;
-        panel.add(lblMatKhau, gbc);
+        panel.add(lblXacNhanMKMoi, gbc);
 
-        // === SỬA LỖI: TẠO PANEL CHỨA MẬT KHẨU VÀ NÚT CON MẮT ===
-        // Khởi tạo txtMatKhau ở đây
-        txtMatKhau = new JPasswordField();
-        JPanel passPanel = createPasswordPanel(txtMatKhau, "Nhập mật khẩu ...");
+        txtXacNhanMKMoi = new JPasswordField();
+        JPanel passPanelXacNhan = createPasswordPanel(txtXacNhanMKMoi, "Nhập lại mật khẩu mới ...");
         gbc.gridy = 5; gbc.insets = new Insets(0, 0, 0, 0);
         gbc.anchor = GridBagConstraints.CENTER;
-        panel.add(passPanel, gbc);
-        // === KẾT THÚC SỬA ===
+        panel.add(passPanelXacNhan, gbc);
         
-        // Bỏ CheckBox
-        // gbc.gridy = 6; ...
+        // 5. NÚT XÁC NHẬN
+        JButton btnXacNhan = new JButton("Xác nhận");
+        btnXacNhan.setBackground(Color.BLACK);
+        btnXacNhan.setForeground(Color.WHITE);
+        btnXacNhan.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        btnXacNhan.setPreferredSize(new Dimension(340, 55)); 
+        btnXacNhan.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        gbc.gridy = 6; gbc.insets = new Insets(40, 0, 30, 0); 
+        gbc.anchor = GridBagConstraints.CENTER;
+        panel.add(btnXacNhan, gbc);
 
-        // Quên mật khẩu
-        JLabel lblQuenMK = new JLabel("<html><u>Quên mật khẩu ?</u></html>", JLabel.RIGHT);
-        lblQuenMK.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        lblQuenMK.setForeground(Color.BLUE);
-        lblQuenMK.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 7; gbc.insets = new Insets(10, 0, 20, 0); // Sửa lề
-        gbc.anchor = GridBagConstraints.EAST; 
-        panel.add(lblQuenMK, gbc);
-
-        lblQuenMK.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                setVisible(false); 
-                ForgotPasswordUI forgotUI = new ForgotPasswordUI(LoginUI.this); 
-                forgotUI.setVisible(true);
-            }
-        });
-
-        // NÚT ĐĂNG NHẬP
-        JButton btnDangNhap = new JButton("Đăng nhập");
-        btnDangNhap.setBackground(Color.BLACK);
-        btnDangNhap.setForeground(Color.WHITE);
-        btnDangNhap.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        btnDangNhap.setPreferredSize(new Dimension(340, 55));
-        btnDangNhap.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 8; gbc.insets = new Insets(0, 0, 30, 0);
-        gbc.anchor = GridBagConstraints.CENTER; 
-        panel.add(btnDangNhap, gbc);
-
-        btnDangNhap.addActionListener(e -> dangNhap());
-
+        btnXacNhan.addActionListener(e -> thucHienDatLaiMatKhau());
+        
         GridBagConstraints mainGbc = new GridBagConstraints();
         mainGbc.gridx = 0; mainGbc.gridy = 0;
         add(panel, mainGbc);
+        setVisible(true);
     }
     
     // === THÊM HÀM MỚI: TẠO PANEL MẬT KHẨU VỚI ICON ===
@@ -221,58 +213,36 @@ public class LoginUI extends JFrame {
         if (textField instanceof JPasswordField) {
             ((JPasswordField) textField).setEchoChar((char) 0); 
         }
-        
-        // (Xóa FocusListener ở đây, vì createPasswordPanel sẽ tự xử lý)
-        // Chỉ giữ lại cho txtTenDangNhap
-        if (!(textField instanceof JPasswordField)) {
-             textField.addFocusListener(new FocusAdapter() {
-                @Override
-                public void focusGained(FocusEvent e) {
-                    if (textField.getForeground() == Color.GRAY) {
-                        textField.setText("");
-                        textField.setForeground(Color.BLACK);
-                    }
-                }
-                @Override
-                public void focusLost(FocusEvent e) {
-                    if (textField.getText().isEmpty()) {
-                        textField.setForeground(Color.GRAY);
-                        textField.setText(placeholder);
-                    }
-                }
-            });
-        }
     }
     
     // (Bỏ hàm addShowHideListener)
 
-    private void dangNhap() {
-        String ten = txtTenDangNhap.getText().trim();
-        String mk = new String(txtMatKhau.getPassword());
+    // Hàm xử lý logic
+    private void thucHienDatLaiMatKhau() {
+        String mkMoi = new String(txtMKMoi.getPassword()).trim();
+        String xacNhanMK = new String(txtXacNhanMKMoi.getPassword()).trim();
 
-        if (ten.isEmpty() || mk.isEmpty() || ten.equals("Nhập tên đăng nhập ...") || mk.equals("Nhập mật khẩu ...")) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ!");
+        if (mkMoi.equals("Nhập mật khẩu mới ...") || xacNhanMK.equals("Nhập lại mật khẩu mới ...") ||
+            mkMoi.isEmpty() || xacNhanMK.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        if (!mkMoi.equals(xacNhanMK)) {
+            JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        NguoiDungDTO nd = nguoiDungBLL.dangNhap(ten, mk);
-        if (nd != null) {
-            dispose(); 
-            if ("NhanVien".equals(nd.getVaiTro())) {
-                MainUI mainUI = new MainUI(nd); 
-                mainUI.setVisible(true);
-            } else if ("Admin".equals(nd.getVaiTro())) {
-                AdminUI adminUI = new AdminUI(nd); 
-                adminUI.setVisible(true);
+        try {
+            if (bll.doiMatKhau(this.tenDangNhap, mkMoi)) {
+                JOptionPane.showMessageDialog(this, "Đặt lại mật khẩu thành công! Vui lòng đăng nhập.");
+                quayLaiLogin(); 
+            } else {
+                JOptionPane.showMessageDialog(this, "Đặt lại mật khẩu thất bại! (Lỗi BLL/DAL)");
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu!");
+        } catch (Exception e) {
+             JOptionPane.showMessageDialog(this, "Lỗi nghiêm trọng: " + e.getMessage());
+             e.printStackTrace();
         }
-    }
-
-    private void moMainUIKhongDangNhap() {
-        dispose(); 
-        MainUI mainUI = new MainUI(null); 
-        mainUI.setVisible(true);
     }
 }

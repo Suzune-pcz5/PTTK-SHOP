@@ -14,17 +14,22 @@ public class GioHangBLL {
     public boolean themVaoGio(int figureId, int soLuong) {
         FigureDTO gb = figureDAL.timTheoId(figureId);
         if (gb != null && gb.getSoLuong() >= soLuong) {
+            for(GioHangItemDTO item : gioHang) {
+                    if(item.getFigureId() == figureId) {
+                        // Nếu đã có, chỉ cập nhật số lượng
+                        item.setSoLuong(item.getSoLuong() + soLuong);
+                        return true;
+                    }
+                }
             gioHang.add(new GioHangItemDTO(gb, soLuong, gb.getGia()));
-            figureDAL.capNhatSoLuong(figureId, soLuong); // Trừ kho tạm
             return true;
-        }
+            }
         return false;
     }
 
     public boolean xoaKhoiGio(int figureId) {
         for (GioHangItemDTO item : new ArrayList<>(gioHang)) {
             if (item.getFigure().getId() == figureId) {
-                figureDAL.capNhatSoLuong(figureId, -item.getSoLuong()); // Trả lại kho
                 gioHang.remove(item);
                 return true;
             }
@@ -41,9 +46,6 @@ public class GioHangBLL {
     }
 
     public void xoaToanBoGio() {
-        for (GioHangItemDTO item : new ArrayList<>(gioHang)) {
-            figureDAL.capNhatSoLuong(item.getFigure().getId(), -item.getSoLuong());
-        }
         gioHang.clear();
     }
 }

@@ -29,6 +29,10 @@ public class NguoiDungBLL {
 
     // KIỂM TRA DANH TÍNH
     public boolean kiemTraDanhTinh(String tenDangNhap, String email) {
+        if (tenDangNhap == null || email == null || 
+            tenDangNhap.trim().isEmpty() || email.trim().isEmpty()) {
+            return false;
+        }
         return dal.kiemTraDanhTinh(tenDangNhap, email);
     }
 
