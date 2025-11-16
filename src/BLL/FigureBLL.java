@@ -24,12 +24,12 @@ public class FigureBLL {
 
     public List<FigureDTO> timKiemNangCao(String ten, String loai, Double minGia, Double maxGia, String kichThuoc) {
         List<FigureDTO> list = new ArrayList<>();
-        String sql = "SELECT * FROM Figure WHERE 1=1";
+        String sql = "SELECT * FROM figure WHERE 1=1";
         List<Object> params = new ArrayList<>();
 
         if (ten != null && !ten.isEmpty()) {
-            sql += " AND ten LIKE ?";
-            params.add("%" + ten + "%");
+            sql += " AND LOWER(ten) LIKE ?";
+            params.add("%" + ten.toLowerCase() + "%");
         }
         if (loai != null && !loai.isEmpty()) {
             sql += " AND loai = ?";
@@ -72,9 +72,9 @@ public class FigureBLL {
                 f.setTen(rs.getString("ten"));
                 f.setLoai(rs.getString("loai"));
                 f.setGia(rs.getDouble("gia"));
-                f.setKichThuoc(rs.getString("kichThuoc"));
-                f.setSoLuong(rs.getInt("soLuong"));
-                f.setMoTa(rs.getString("moTa"));
+                f.setKichThuoc(rs.getString("kich_thuoc"));
+                f.setSoLuong(rs.getInt("so_luong"));
+                f.setMoTa(rs.getString("mo_ta"));
                 list.add(f);
             }
         } catch (Exception e) {

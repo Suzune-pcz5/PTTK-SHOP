@@ -79,9 +79,9 @@ public class DBConnection {
     public List<String> layTatCa() {
         List<String> result = new ArrayList<>();
         try {
-            resultSet = executeQuery("SELECT username FROM users"); // Thay 'users' và 'username' theo bảng/cột thực tế
+            resultSet = executeQuery("SELECT ten_dang_nhap FROM nguoidung"); // Thay 'users' và 'username' theo bảng/cột thực tế
             while (resultSet.next()) {
-                result.add(resultSet.getString("username"));
+                result.add(resultSet.getString("ten_dang_nhap"));
             }
         } catch (SQLException e) {
             System.err.println("❌ Lỗi trong layTatCa: " + e.getMessage());
