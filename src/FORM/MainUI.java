@@ -525,11 +525,11 @@ private JMenuItem createStyledMenuItem(String text) {
         this.danhSachHienTai = list; 
 
         for (FigureDTO f : list) {
-            // === SỬA LỖI 2: TẢI ẢNH THU NHỎ (50x50) ===
-            ImageIcon icon = loadResizedIcon(f.getId(), 50, 50);
-            
+            // GỌI HÀM: Truyền getHinhAnh() (ví dụ: "aqua.jpg") thay vì getId()
+            ImageIcon icon = loadResizedIcon(f.getHinhAnh(), 50, 50);
+
             model.addRow(new Object[]{
-                    f.getId(), icon, f.getTen(), f.getLoai(), // Thêm 'icon' vào đây
+                    f.getId(), icon, f.getTen(), f.getLoai(), 
                     String.format("%,.0f", f.getGia()), f.getKichThuoc(), f.getSoLuong(),
                     "Chi tiết", "Thêm"
             });
@@ -594,12 +594,12 @@ private JMenuItem createStyledMenuItem(String text) {
         tong += tt;
 
         // 3. TẢI ẢNH (size nhỏ 50x50)
-        ImageIcon icon = loadResizedIcon(i.getFigure().getId(), 50, 50);
+        ImageIcon icon = loadResizedIcon(i.getFigure().getHinhAnh(), 50, 50);
 
         // 4. THÊM ẢNH VÀO HÀNG
         model.addRow(new Object[]{
             i.getFigure().getId(),
-            icon, // Thêm icon vào đây
+            icon, 
             i.getFigure().getTen(),
             i.getSoLuong(),
             String.format("%,.0f", tt),
@@ -781,19 +781,34 @@ private JMenuItem createStyledMenuItem(String text) {
         hoaDonDialog.setVisible(true);
     }
 
-    private ImageIcon loadResizedIcon(int figureId, int width, int height) {
+    private ImageIcon loadResizedIcon(String filename, int width, int height) {
         try {
-            // Dùng đường dẫn Classpath (giống hàm moChiTiet)
-            URL imgUrl = getClass().getResource("/Resources/figure_images/" + figureId + ".jpg"); 
-            if (imgUrl == null) {
-                 return null; // Không tìm thấy ảnh
+            // 1. Xử lý tên file
+            if (filename == null || filename.trim().isEmpty()) {
+                // System.out.println(">> Lỗi: Tên file trong DB bị null hoặc rỗng.");
+                return null; 
             }
-            BufferedImage img = ImageIO.read(imgUrl);
-            Image scaled = img.getScaledInstance(width, height, Image.SCALE_SMOOTH); 
+            
+            // 2. Tạo đường dẫn File trực tiếp từ thư mục dự án
+            // NetBeans chạy từ thư mục gốc dự án, nên đường dẫn là src/Resources/...
+            File imgFile = new File("src/Resources/figure_images/" + filename);
+            
+            // 3. Kiểm tra file có tồn tại không
+            if (!imgFile.exists()) {
+                System.out.println(">> KHÔNG TÌM THẤY FILE: " + imgFile.getAbsolutePath());
+                return null; // Hoặc trả về ảnh mặc định nếu muốn
+            }
+            
+            // 4. Đọc ảnh
+            BufferedImage img = ImageIO.read(imgFile);
+            if (img == null) return null;
+
+            Image scaled = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
             return new ImageIcon(scaled);
+
         } catch (Exception e) {
-            // System.err.println("Lỗi load ảnh cho bảng: " + e.getMessage());
-            return null; // Trả về null nếu có lỗi
+            System.out.println(">> Ngoại lệ khi load ảnh: " + e.getMessage());
+            return null;
         }
     }
     
@@ -878,7 +893,10 @@ private JMenuItem createStyledMenuItem(String text) {
         imgLabel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         
         try {
-            URL imgUrl = getClass().getResource("/Resources/figure_images/" + f.getId() + ".jpg"); 
+        String imgName = f.getHinhAnh(); 
+        if (imgName == null || imgName.isEmpty()) imgName = "default.jpg";
+
+        URL imgUrl = getClass().getResource("/Resources/figure_images/" + imgName); 
             if (imgUrl == null) {
                  throw new java.io.FileNotFoundException("Không tìm thấy file: /Resources/figure_images/" + f.getId() + ".jpg");
             }
