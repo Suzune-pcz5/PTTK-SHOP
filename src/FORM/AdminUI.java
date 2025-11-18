@@ -688,6 +688,7 @@ public class AdminUI extends JFrame {
         return card;
     }
 
+    
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
