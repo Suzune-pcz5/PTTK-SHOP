@@ -1,4 +1,3 @@
-// DTO/DonHangDTO.java
 package DTO;
 
 import java.sql.Date;
@@ -14,7 +13,7 @@ public class DonHangDTO {
     private String trangThai;
     private List<GioHangItemDTO> gioHang;
 
-    // Khi tạo mới
+    // Constructor khi TẠO MỚI đơn hàng
     public DonHangDTO(int maNhanVien, List<GioHangItemDTO> gioHang,
                       double tongTien, String phuongThucTT, String maKhuyenMai) {
         this.maNhanVien = maNhanVien;
@@ -23,10 +22,11 @@ public class DonHangDTO {
         this.ngayDat = new Date(System.currentTimeMillis());
         this.phuongThucTT = phuongThucTT;
         this.maKhuyenMai = maKhuyenMai;
-        this.trangThai = "DaThanhToan";
+        // [SỬA]: Mặc định là Tiếng Việt khớp với Database
+        this.trangThai = "Đã thanh toán"; 
     }
 
-    // Khi lấy từ DB
+    // Constructor khi LẤY từ Database
     public DonHangDTO(int maDonHang, int maNhanVien,
                       List<GioHangItemDTO> gioHang, double tongTien) {
         this.maDonHang = maDonHang;
@@ -35,7 +35,7 @@ public class DonHangDTO {
         this.tongTien = tongTien;
     }
 
-    // ----- getters / setters -----
+    // Getters & Setters
     public int getMaDonHang() { return maDonHang; }
     public void setMaDonHang(int maDonHang) { this.maDonHang = maDonHang; }
 

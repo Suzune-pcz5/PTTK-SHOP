@@ -48,8 +48,8 @@ public class MainUI extends JFrame {
              lblTenNguoiDung.setForeground(Color.WHITE);
         }
         lblTenNguoiDung.setText(nguoiDungHienTai != null
-                ? nguoiDungHienTai.getTenDangNhap()
-                : "Khách");
+         ? "<html>Xin chào, <b>" + nguoiDungHienTai.getTenDangNhap() + "</b></html>"
+         : "Xin chào, Khách");
     }
 
     private void initComponents() {
@@ -123,7 +123,7 @@ public class MainUI extends JFrame {
         searchPanel.add(txtMaxGia);
 
         searchPanel.add(createLabelWhite("KT:"));
-        cbKichThuoc = new JComboBox<>(new String[]{"Tất cả", "1/144", "1/100", "1/60", "Khác"});
+        cbKichThuoc = new JComboBox<>(new String[]{"Tất cả", "1/6", "1/8", "1/10", "1/12", "Khác"});
         cbKichThuoc.setPreferredSize(new Dimension(130, componentHeight)); 
         searchPanel.add(cbKichThuoc);
 
@@ -691,47 +691,48 @@ private JMenuItem createStyledMenuItem(String text) {
 
     // === ĐÃ SỬA: CẬP NHẬT GIAO DIỆN SAU KHI THANH TOÁN ===
     private void thanhToan() {
+        // 1. Kiểm tra đăng nhập
         if (nguoiDungHienTai == null) {
             JOptionPane.showMessageDialog(this, "Vui lòng đăng nhập!");
             return;
         }
         
+        // 2. Kiểm tra giỏ hàng
         List<GioHangItemDTO> gioHangHienTai = bll.getGioHang();
         if (gioHangHienTai == null || gioHangHienTai.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng!");
             return;
         }
 
-        // Chuẩn bị tham số
+        // 3. Lấy thông tin thanh toán
         int maNhanVien = nguoiDungHienTai.getMaNguoiDung();
-        String phuongThucTT = (String) cbPhuongThucTT.getSelectedItem(); // Lấy từ ComboBox
+        String phuongThucTT = (String) cbPhuongThucTT.getSelectedItem(); 
         String maKhuyenMai = txtMaKM.getText().trim();
         if (phanTramGiam == 0 || maKhuyenMai.isEmpty()) {
             maKhuyenMai = null;
         }
 
-        // Gọi BLL thanh toán
+        // 4. Gọi BLL xử lý (Lưu xuống DB -> Trigger SQL sẽ chạy để trừ kho)
         DonHangDTO donHang = bll.thanhToan(maNhanVien, phuongThucTT, maKhuyenMai);
 
         if (donHang != null) {
-            // 1. Hiển thị thông báo thành công (Popup đơn giản)
-            JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
+            // --- THANH TOÁN THÀNH CÔNG ---
             
-            // 2. === SỬA LỖI TẠI ĐÂY ===
-            // Thay vì in ra JTextArea, gọi hàm popup hóa đơn
+            // A. Hiển thị hóa đơn
             hienThiPopupHoaDon(donHang);
-            // (Xóa code cũ: StringBuilder sb = ... và txtKetQua.setText(...) )
-
-            // 3. Cập nhật lại giao diện (BLL đã tự xóa giỏ hàng)
-            capNhatGioHang(); // Cập nhật giỏ hàng (sẽ rỗng)
             
-            // 4. Tải lại danh sách (để cập nhật số lượng CHÍNH THỨC từ CSDL)
+            // B. Cập nhật giao diện Giỏ hàng (Lúc này BLL đã xóa giỏ, cần vẽ lại bảng rỗng)
+            capNhatGioHang(); 
+            
+            // C. Cập nhật giao diện Danh sách sản phẩm (QUAN TRỌNG: Tải lại từ DB để thấy tồn kho giảm)
             taiDanhSach();    
             
-            // 5. Reset các trường
+            // D. Reset các trường nhập liệu
             phanTramGiam = 0;
             txtMaKM.setText("");
-
+            lblTongTien.setText("Tổng: 0 VND (Giảm 0%)"); 
+            
+            JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
         } else {
             JOptionPane.showMessageDialog(this, "Thanh toán thất bại! (Lỗi lưu CSDL)");
         }
@@ -781,33 +782,39 @@ private JMenuItem createStyledMenuItem(String text) {
         hoaDonDialog.setVisible(true);
     }
 
+    // THAY THẾ HÀM CŨ BẰNG HÀM NÀY ĐỂ DEBUG
     private ImageIcon loadResizedIcon(String filename, int width, int height) {
+        if (filename == null || filename.trim().isEmpty()) return null;
+        
         try {
-            // 1. Xử lý tên file
-            if (filename == null || filename.trim().isEmpty()) {
-                // System.out.println(">> Lỗi: Tên file trong DB bị null hoặc rỗng.");
-                return null; 
+            // CÁCH 1: Dùng ClassLoader (Chuẩn nhất khi chạy trong NetBeans src)
+            // Lưu ý: Đường dẫn bắt đầu bằng dấu /
+            URL imgUrl = getClass().getResource("/Resources/figure_images/" + filename);
+            
+            if (imgUrl != null) {
+                BufferedImage img = ImageIO.read(imgUrl);
+                return new ImageIcon(img.getScaledInstance(width, height, Image.SCALE_SMOOTH));
             }
             
-            // 2. Tạo đường dẫn File trực tiếp từ thư mục dự án
-            // NetBeans chạy từ thư mục gốc dự án, nên đường dẫn là src/Resources/...
-            File imgFile = new File("src/Resources/figure_images/" + filename);
+            // CÁCH 2: Nếu cách 1 tạch, thử tìm bằng đường dẫn File cứng
+            // In ra thư mục làm việc hiện tại để kiểm tra
+            // System.out.println("Working Dir: " + System.getProperty("user.dir"));
             
-            // 3. Kiểm tra file có tồn tại không
-            if (!imgFile.exists()) {
-                System.out.println(">> KHÔNG TÌM THẤY FILE: " + imgFile.getAbsolutePath());
-                return null; // Hoặc trả về ảnh mặc định nếu muốn
+            File f = new File("src/Resources/figure_images/" + filename);
+            if (f.exists()) {
+                BufferedImage img = ImageIO.read(f);
+                return new ImageIcon(img.getScaledInstance(width, height, Image.SCALE_SMOOTH));
+            } else {
+                // DÒNG NÀY QUAN TRỌNG: Nhìn vào Output để xem nó báo lỗi gì
+                System.err.println("❌ KHÔNG TÌM THẤY ẢNH: " + filename);
+                System.err.println("   -> Đã tìm tại: " + f.getAbsolutePath());
+                System.err.println("   -> Và tìm tại classpath: /Resources/figure_images/" + filename);
             }
-            
-            // 4. Đọc ảnh
-            BufferedImage img = ImageIO.read(imgFile);
-            if (img == null) return null;
 
-            Image scaled = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaled);
+            return null;
 
         } catch (Exception e) {
-            System.out.println(">> Ngoại lệ khi load ảnh: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }

@@ -4,9 +4,11 @@ package FORM;
 
 import BLL.NguoiDungBLL;
 import DTO.NguoiDungDTO;
+import Database.DBConnection;    // <--- THÊM DÒNG NÀY (Kiểm tra lại tên class kết nối CSDL của bạn)
 import javax.swing.*;
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.sql.*;          // <--- THÊM DÒNG NÀY
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.WindowAdapter;
@@ -17,7 +19,8 @@ public class LoginUI extends JFrame {
     private JPasswordField txtMatKhau;
     // private JCheckBox chkShowPass; // Bỏ CheckBox
     private NguoiDungBLL nguoiDungBLL = new NguoiDungBLL();
-
+    private DBConnection db = new DBConnection(); // <--- THÊM DÒNG NÀY để dùng kết nối CSDL
+    
     public LoginUI() {
         initComponents();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); 
@@ -250,23 +253,69 @@ public class LoginUI extends JFrame {
         String ten = txtTenDangNhap.getText().trim();
         String mk = new String(txtMatKhau.getPassword());
 
+        // 1. Kiểm tra rỗng
         if (ten.isEmpty() || mk.isEmpty() || ten.equals("Nhập tên đăng nhập ...") || mk.equals("Nhập mật khẩu ...")) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ!");
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!");
             return;
         }
 
-        NguoiDungDTO nd = nguoiDungBLL.dangNhap(ten, mk);
-        if (nd != null) {
-            dispose(); 
-            if ("NhanVien".equals(nd.getVaiTro())) {
-                MainUI mainUI = new MainUI(nd); 
-                mainUI.setVisible(true);
-            } else if ("Admin".equals(nd.getVaiTro())) {
-                AdminUI adminUI = new AdminUI(nd); 
-                adminUI.setVisible(true);
+        // 2. LOGIC KIỂM TRA ĐĂNG NHẬP CHI TIẾT
+        try (Connection conn = db.getConnect();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM nguoidung WHERE ten_dang_nhap = ? AND mat_khau = ?")) {
+
+            ps.setString(1, ten);
+            ps.setString(2, mk);
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                // --- TRƯỜNG HỢP A: Tài khoản và Mật khẩu ĐÚNG ---
+                
+                // Lấy trạng thái ra kiểm tra
+                String status = rs.getString("trang_thai");
+                String role = rs.getString("vai_tro");
+                
+                // Kiểm tra xem có phải là "Mở" (hoặc "Active") hay không
+                if (status != null && (status.equalsIgnoreCase("Mở") || status.equalsIgnoreCase("Active"))) {
+                    
+                    // ==> ĐĂNG NHẬP THÀNH CÔNG
+                    // Tạo DTO thủ công để truyền sang form khác (vì không dùng BLL ở đây)
+                    NguoiDungDTO nd = new NguoiDungDTO();
+                    nd.setTenDangNhap(ten);
+                    nd.setMatKhau(mk);
+                    nd.setVaiTro(role);
+                    nd.setTrangThai(status);
+                    // Set thêm các trường khác nếu cần (email...)
+                    
+                    JOptionPane.showMessageDialog(this, "Đăng nhập thành công! Xin chào " + role);
+                    this.dispose(); // Đóng form Login
+                    
+                    // Chuyển màn hình
+                    if ("Admin".equalsIgnoreCase(role)) {
+                        new AdminUI(nd).setVisible(true);
+                    } else {
+                        new MainUI(nd).setVisible(true);
+                    }
+                    
+                } else {
+                    // ==> TRƯỜNG HỢP B: Đúng mật khẩu nhưng BỊ KHÓA
+                    JOptionPane.showMessageDialog(this, 
+                        "Tài khoản của bạn hiện đang bị KHÓA.\nVui lòng liên hệ Admin để mở lại!", 
+                        "Thông báo", 
+                        JOptionPane.WARNING_MESSAGE);
+                }
+
+            } else {
+                // --- TRƯỜNG HỢP C: Không tìm thấy User hoặc sai Pass ---
+                JOptionPane.showMessageDialog(this, 
+                    "Sai tên đăng nhập hoặc mật khẩu!", 
+                    "Lỗi đăng nhập", 
+                    JOptionPane.ERROR_MESSAGE);
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu!");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi kết nối cơ sở dữ liệu!");
         }
     }
 
