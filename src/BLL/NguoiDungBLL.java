@@ -4,6 +4,7 @@ package BLL;
 import DAL.NguoiDungDAL;
 import DTO.NguoiDungDTO;
 import java.util.List;
+import javax.swing.JOptionPane; // Thêm để thông báo lỗi (nếu cần thiết)
 
 public class NguoiDungBLL {
     private NguoiDungDAL dal = new NguoiDungDAL();
@@ -16,7 +17,17 @@ public class NguoiDungBLL {
     }
 
     public NguoiDungDTO dangNhap(String tenDangNhap, String matKhau) {
-        return dal.timNguoiDung(tenDangNhap, matKhau);
+        NguoiDungDTO nd = dal.timNguoiDung(tenDangNhap, matKhau);
+        
+        // [SỬA]: Kiểm tra trạng thái
+        if (nd != null) {
+            if ("Tắt".equals(nd.getTrangThai()) || "Locked".equalsIgnoreCase(nd.getTrangThai())) {
+                // Nếu trạng thái là Tắt/Locked -> Trả về null coi như đăng nhập thất bại
+                // (Hoặc bạn có thể throw exception để UI hứng và báo lỗi cụ thể hơn)
+                return null; 
+            }
+        }
+        return nd;
     }
 
     public List<NguoiDungDTO> layTatCa() {

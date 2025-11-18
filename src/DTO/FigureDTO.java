@@ -8,6 +8,7 @@ public class FigureDTO {
     private String kichThuoc;
     private int soLuong;
     private String moTa;
+    private String hinhAnh;
 
     // Constructor
     public FigureDTO() {}
@@ -27,4 +28,10 @@ public class FigureDTO {
     public void setSoLuong(int soLuong) { this.soLuong = soLuong; }
     public String getMoTa() { return moTa; }
     public void setMoTa(String moTa) { this.moTa = moTa; }
+    public String getHinhAnh() { 
+        return hinhAnh; 
+    }
+    public void setHinhAnh(String hinhAnh) { 
+        this.hinhAnh = hinhAnh; 
+    }
 }
