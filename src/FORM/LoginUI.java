@@ -281,6 +281,9 @@ public class LoginUI extends JFrame {
                     // ==> ĐĂNG NHẬP THÀNH CÔNG
                     // Tạo DTO thủ công để truyền sang form khác (vì không dùng BLL ở đây)
                     NguoiDungDTO nd = new NguoiDungDTO();
+                    // --- [BỔ SUNG DÒNG QUAN TRỌNG NÀY] ---
+                    nd.setMaNguoiDung(rs.getInt("ma_nguoi_dung")); // <--- Lấy ID từ SQL bỏ vào DTO
+                    // -------------------------------------
                     nd.setTenDangNhap(ten);
                     nd.setMatKhau(mk);
                     nd.setVaiTro(role);
