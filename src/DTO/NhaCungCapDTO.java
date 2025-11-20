@@ -6,16 +6,18 @@ public class NhaCungCapDTO {
     private String diaChi;
     private String sdt;
     private String email;
+    private String trangThai; // 'Hợp tác' hoặc 'Ngừng'
 
     public NhaCungCapDTO() {
     }
 
-    public NhaCungCapDTO(int maNCC, String tenNCC, String diaChi, String sdt, String email) {
+    public NhaCungCapDTO(int maNCC, String tenNCC, String diaChi, String sdt, String email, String trangThai) {
         this.maNCC = maNCC;
         this.tenNCC = tenNCC;
         this.diaChi = diaChi;
         this.sdt = sdt;
         this.email = email;
+        this.trangThai = trangThai;
     }
 
     // Getter & Setter
@@ -34,7 +36,10 @@ public class NhaCungCapDTO {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    // Hàm này quan trọng để hiển thị tên trong ComboBox
+    public String getTrangThai() { return trangThai; }
+    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
+
+    // [QUAN TRỌNG] Hàm này giúp JComboBox hiển thị Tên thay vì mã hash
     @Override
     public String toString() {
         return this.tenNCC; 

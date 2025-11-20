@@ -117,7 +117,7 @@ public class FigureUI extends JFrame {
         String kichThuoc = (String) cbKichThuoc.getSelectedItem();
         if ("Tất cả".equals(kichThuoc)) kichThuoc = null;
 
-        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, minGia, maxGia, kichThuoc); 
+        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, minGia, maxGia, kichThuoc, 0); 
         capNhatBangDanhSach(this.danhSachHienTai);
     }
 

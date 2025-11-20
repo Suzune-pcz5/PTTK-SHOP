@@ -19,9 +19,10 @@ public class FigureBLL {
     }
 
     // === ĐÂY LÀ HÀM GÂY LỖI CŨ, ĐÃ ĐƯỢC SỬA ĐỂ GỌI SANG DAL ===
-    public List<FigureDTO> timKiemNangCao(String ten, String loai, Double minGia, Double maxGia, String kichThuoc) {
-        // Chuyển tiếp yêu cầu sang DAL để xử lý SQL
-        return dal.timKiemNangCao(ten, loai, minGia, maxGia, kichThuoc);
+    // Thêm tham số "Integer maNCC"
+    public List<FigureDTO> timKiemNangCao(String ten, String loai, Double minGia, Double maxGia, String kichThuoc, Integer maNCC) {
+        // Truyền maNCC xuống DAL
+        return dal.timKiemNangCao(ten, loai, minGia, maxGia, kichThuoc, maNCC);
     }
     // =========================================================
 

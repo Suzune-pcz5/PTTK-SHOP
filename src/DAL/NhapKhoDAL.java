@@ -13,7 +13,8 @@ import java.util.List;
 
 public class NhapKhoDAL {
     private DBConnection db = new DBConnection();
-
+    private FigureDAL figureDAL = new FigureDAL(); // <--- Đảm bảo dòng này tồn tại
+        
     // === 1. LƯU PHIẾU NHẬP ===
     public boolean luuPhieuNhap(NhapKhoDTO nhapKho) {
         String sql = "INSERT INTO nhapkho (figureId, so_luong_nhap, ngay_nhap, ma_nhan_vien) VALUES (?, ?, ?, ?)";
@@ -35,7 +36,7 @@ public class NhapKhoDAL {
                 }
                 // Cập nhật tồn kho
                 FigureDAL figureDAL = new FigureDAL();
-                return figureDAL.capNhatSoLuong(nhapKho.getFigureId(), -nhapKho.getSoLuongNhap()); // Cộng kho
+                return figureDAL.capNhatSoLuong(nhapKho.getFigureId(), nhapKho.getSoLuongNhap());
             }
         } catch (SQLException e) {
             System.err.println("Lỗi lưu phiếu nhập: " + e.getMessage());
