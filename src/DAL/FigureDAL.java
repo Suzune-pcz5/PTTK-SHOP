@@ -8,9 +8,10 @@ import java.util.List;
 
 public class FigureDAL {
 
+    // 1. Lấy tất cả sản phẩm
     public List<FigureDTO> layTatCa() {
         List<FigureDTO> list = new ArrayList<>();
-        // Cần JOIN để lấy ten_ncc, dùng LEFT JOIN để tránh mất SP nếu chưa có NCC
+        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc' cho khớp với Database
         String sql = "SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc"; 
 
         try (Connection conn = new DBConnection().getConnect();
@@ -21,15 +22,15 @@ public class FigureDAL {
                 list.add(mapRowToDTO(rs));
             }
         } catch (Exception e) {
-            e.printStackTrace(); // Xem lỗi ở Output nếu có
+            e.printStackTrace(); 
         }
         return list;
     }
 
-    // --- SỬA HÀM timTheoId() ---
+    // 2. Tìm theo ID
     public FigureDTO timTheoId(int id) {
-        // Sửa query: Thêm JOIN với nhacungcap để lấy ten_ncc
-        String sql = "SELECT f.*, n.ten AS ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.id_ncc WHERE f.id = ?";
+        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc'
+        String sql = "SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc WHERE f.id = ?";
         try (Connection conn = new DBConnection().getConnect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
@@ -43,11 +44,11 @@ public class FigureDAL {
         return null;
     }
 
-    // --- HÀM TÌM KIẾM NÂNG CAO (ĐÃ SỬA QUERY) ---
+    // 3. Tìm kiếm nâng cao
     public List<FigureDTO> timKiemNangCao(String ten, String loai, Double min, Double max, String kt, Integer maNCC) {
         List<FigureDTO> list = new ArrayList<>();
-        // Sửa query: Thêm JOIN với nhacungcap để lấy ten_ncc
-        StringBuilder sql = new StringBuilder("SELECT f.*, n.ten AS ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.id_ncc WHERE 1=1");
+        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc'
+        StringBuilder sql = new StringBuilder("SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc WHERE 1=1");
 
         if (ten != null && !ten.isEmpty()) sql.append(" AND f.ten LIKE '%").append(ten).append("%'");
         if (loai != null) sql.append(" AND f.loai = '").append(loai).append("'");
@@ -59,6 +60,9 @@ public class FigureDAL {
         if (maNCC != null && maNCC > 0) {
             sql.append(" AND f.ma_ncc = ").append(maNCC);
         }
+        
+        // Sắp xếp
+        sql.append(" ORDER BY f.id ASC");
 
         try (Connection conn = new DBConnection().getConnect();
              Statement stmt = conn.createStatement();
@@ -73,7 +77,7 @@ public class FigureDAL {
         return list;
     }
 
-    // --- HÀM PHỤ MAP DỮ LIỆU (ĐÃ THÊM tenNCC) ---
+    // 4. Hàm map dữ liệu (An toàn hơn)
     private FigureDTO mapRowToDTO(ResultSet rs) throws SQLException {
         FigureDTO f = new FigureDTO();
         f.setId(rs.getInt("id"));
@@ -85,17 +89,18 @@ public class FigureDAL {
         f.setMoTa(rs.getString("mo_ta"));
         f.setHinhAnh(rs.getString("hinh_anh"));
         f.setMaNCC(rs.getInt("ma_ncc")); 
-        f.setTenNCC(rs.getString("ten_ncc")); // <--- LẤY TEN_NCC TỪ KẾT QUẢ JOIN
+        
+        // Lấy tên NCC (Xử lý ngoại lệ nếu cột không tồn tại hoặc null)
         try {
-            f.setTenNCC(rs.getString("ten_ncc")); // Lấy tên NCC
+            String tenNCC = rs.getString("ten_ncc");
+            f.setTenNCC(tenNCC != null ? tenNCC : "Chưa rõ");
         } catch (SQLException e) {
-            f.setTenNCC("Chưa rõ"); // Fallback nếu không join
+            f.setTenNCC("Chưa rõ"); 
         }
         return f;
     }
     
-    // Phương thức cập nhật số lượng tồn kho (Cộng thêm hoặc Trừ đi)
-    // quantityChange: Số lượng thay đổi (dương để cộng, âm để trừ)
+    // 5. Cập nhật số lượng (Cho nhập kho/thanh toán)
     public boolean capNhatSoLuong(int figureId, int quantityChange) {
         String sql = "UPDATE figure SET so_luong = so_luong + ? WHERE id = ?";
         try (Connection conn = new DBConnection().getConnect();
