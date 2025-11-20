@@ -560,14 +560,21 @@ public class MainUI extends JFrame {
     }
 
     private void themVaoGio(int id, int soLuong) {
+        // 1. Gọi BLL thêm vào giỏ hàng (Database)
         if (bll.themVaoGio(id, soLuong)) {
-            capNhatGioHang();
+            capNhatGioHang(); // Cập nhật bảng giỏ hàng
+            
+            // 2. [QUAN TRỌNG] Trừ tồn kho trong biến danh sách tạm (RAM)
             for (FigureDTO fig : this.danhSachHienTai) {
                 if (fig.getId() == id) {
-                    fig.setSoLuong(fig.getSoLuong() - soLuong); break;
+                    fig.setSoLuong(fig.getSoLuong() - soLuong); // 50 - 5 = 45
+                    break;
                 }
             }
+            
+            // 3. Vẽ lại bảng từ danh sách đã trừ (Hiển thị 45)
             capNhatBangDanhSach(this.danhSachHienTai);
+            
         } else {
             JOptionPane.showMessageDialog(this, "Không đủ hàng hoặc lỗi kho!");
         }
@@ -813,12 +820,14 @@ public class MainUI extends JFrame {
         Double max = parseDouble(txtMaxGia.getText());
         String kt = "Tất cả".equals(cbKichThuoc.getSelectedItem()) ? null : (String) cbKichThuoc.getSelectedItem();
         
-        // --- LẤY MÃ NCC (Nếu bạn chưa làm ComboBox NCC bên MainUI thì để là 0 hoặc null) ---
-        Integer maNCC = 0; 
-        // Nếu bạn đã thêm cbLocNCC thì dùng dòng dưới:
-        // if (cbLocNCC != null && cbLocNCC.getSelectedIndex() > 0) maNCC = ((NhaCungCapDTO)cbLocNCC.getSelectedItem()).getMaNCC();
-        
-        // Truyền thêm maNCC vào hàm
+        // --- LẤY MÃ NCC ---
+        Integer maNCC = 0;
+        if (cbLocNCC != null && cbLocNCC.getSelectedIndex() > 0) {
+             NhaCungCapDTO ncc = (NhaCungCapDTO) cbLocNCC.getSelectedItem();
+             maNCC = ncc.getMaNCC();
+        }
+
+        // Gọi hàm tìm kiếm (Đảm bảo BLL đã có hàm nhận 6 tham số)
         this.danhSachHienTai = bll.timKiemNangCao(ten, loai, min, max, kt, maNCC);
         capNhatBangDanhSach(this.danhSachHienTai);
     }
@@ -874,17 +883,43 @@ public class MainUI extends JFrame {
         public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) { return this; }
     }
     private class AddButtonEditor extends DefaultCellEditor {
-        JButton b; int r;
+        JButton b;
+        
         public AddButtonEditor(JCheckBox cb) {
-            super(cb); b = new JButton("Thêm");
+            super(cb);
+            b = new JButton("Thêm");
             b.addActionListener(e -> {
-                int id = (int)tblDanhSach.getModel().getValueAt(r, 0);
-                String sl = JOptionPane.showInputDialog("Nhập số lượng:");
-                try { if(sl!=null) themVaoGio(id, Integer.parseInt(sl)); } catch(Exception ex){}
+                // Lấy dòng được chọn
+                int selectedRow = tblDanhSach.getSelectedRow();
+                
+                if (selectedRow != -1) {
+                    // Lấy ID sản phẩm
+                    int id = Integer.parseInt(tblDanhSach.getValueAt(selectedRow, 0).toString());
+                    
+                    String slStr = JOptionPane.showInputDialog("Nhập số lượng:");
+                    if (slStr != null && !slStr.trim().isEmpty()) {
+                        try {
+                            int soLuong = Integer.parseInt(slStr.trim());
+                            if (soLuong > 0) {
+                                // [SỬA LỖI]: Gọi hàm themVaoGio() của MainUI
+                                // Hàm này sẽ tự động trừ tồn kho trong danh sách gốc và vẽ lại bảng
+                                themVaoGio(id, soLuong); 
+                            }
+                        } catch (NumberFormatException ex) {
+                            JOptionPane.showMessageDialog(null, "Vui lòng nhập số!");
+                        }
+                    }
+                }
                 fireEditingStopped();
             });
         }
-        public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int row, int c) { r=row; return b; }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
+            return b;
+        }
+        
+        @Override
         public Object getCellEditorValue() { return "Thêm"; }
     }
 
