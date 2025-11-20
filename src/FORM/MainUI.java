@@ -1,6 +1,8 @@
 package FORM;
 
 import BLL.FigureBLL;
+import BLL.NhaCungCapBLL; 
+import DTO.NhaCungCapDTO;
 import DTO.*;
 import Database.DBConnection; 
 
@@ -29,6 +31,8 @@ public class MainUI extends JFrame {
     private JTextField txtMinGia, txtMaxGia, txtTenTimKiem;
     private JComboBox<String> cbLoai, cbKichThuoc;
     private JSplitPane splitPane;
+    private JComboBox<NhaCungCapDTO> cbLocNCC; // <--- THÊM MỚI
+    private NhaCungCapBLL nccBLL = new NhaCungCapBLL(); // <--- THÊM MỚI
     
     // Header components
     private JLabel lblTenNguoiDung;
@@ -132,6 +136,18 @@ public class MainUI extends JFrame {
         cbKichThuoc.setPreferredSize(new Dimension(80, h));
         searchPanel.add(cbKichThuoc);
 
+        // Thêm ComboBox NCC vào searchPanel
+        searchPanel.add(createLabelWhite("NCC:"));
+        cbLocNCC = new JComboBox<>();
+        cbLocNCC.setPreferredSize(new Dimension(120, 35));
+        // Thêm mục mặc định
+        cbLocNCC.addItem(new NhaCungCapDTO(0, "Tất cả", "", "", "", "")); 
+        // Load danh sách từ DB
+        List<NhaCungCapDTO> listNCC = nccBLL.getListNhaCungCap();
+        for(NhaCungCapDTO ncc : listNCC) cbLocNCC.addItem(ncc);
+        
+        searchPanel.add(cbLocNCC);
+        
         JButton btnTimKiem = createRedButton("Tìm");
         btnTimKiem.setPreferredSize(new Dimension(80, h));
         btnTimKiem.addActionListener(e -> timKiemNangCao());
@@ -378,10 +394,11 @@ public class MainUI extends JFrame {
     }
 
     private void capNhatBangDanhSach(List<FigureDTO> list) {
-        String[] cols = {"ID", "Hình", "Tên Figure", "Loại", "Giá", "Kích thước", "Số lượng", "Chi tiết", "Thêm"};
+        // THÊM CỘT "Nhà cung cấp" vào đây
+        String[] cols = {"ID", "Hình", "Tên Figure", "Loại", "Giá", "Kích thước", "Số lượng", "Nhà cung cấp", "Chi tiết", "Thêm"};
         
         DefaultTableModel model = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return c >= 7; }
+            @Override public boolean isCellEditable(int r, int c) { return c >= 8; }
             @Override public Class<?> getColumnClass(int c) { return c == 1 ? ImageIcon.class : Object.class; }
         };
         
@@ -391,15 +408,24 @@ public class MainUI extends JFrame {
             model.addRow(new Object[]{
                     f.getId(), icon, f.getTen(), f.getLoai(), 
                     String.format("%,.0f", f.getGia()), f.getKichThuoc(), f.getSoLuong(),
+                    f.getTenNCC(), // <--- THÊM TEN NCC VÀO ĐÂY
                     "Chi tiết", "Thêm"
             });
         }
         tblDanhSach.setModel(model);
 
-        // Set Width
-        tblDanhSach.getColumnModel().getColumn(0).setPreferredWidth(40); // ID
-        tblDanhSach.getColumnModel().getColumn(1).setPreferredWidth(80); // Ảnh (Rộng hơn chút)
-        tblDanhSach.getColumnModel().getColumn(2).setPreferredWidth(200);// Tên
+        // --- Cập nhật lại chiều rộng cột ---
+        tblDanhSach.getColumnModel().getColumn(0).setPreferredWidth(40);  // ID
+        tblDanhSach.getColumnModel().getColumn(1).setPreferredWidth(80);  // Ảnh
+        tblDanhSach.getColumnModel().getColumn(2).setPreferredWidth(200); // Tên
+        tblDanhSach.getColumnModel().getColumn(3).setPreferredWidth(100); // Loại
+        tblDanhSach.getColumnModel().getColumn(4).setPreferredWidth(120); // Giá
+        tblDanhSach.getColumnModel().getColumn(5).setPreferredWidth(100); // Kích thước
+        tblDanhSach.getColumnModel().getColumn(6).setPreferredWidth(80);  // Số lượng
+        tblDanhSach.getColumnModel().getColumn(7).setPreferredWidth(150); // NCC (Mới)
+        tblDanhSach.getColumnModel().getColumn(8).setPreferredWidth(80);  // Chi tiết (Button)
+        tblDanhSach.getColumnModel().getColumn(9).setPreferredWidth(80);  // Thêm (Button)
+        // ------------------------------------
         
         styleTable(tblDanhSach); // Hàm căn giữa có sẵn
 
@@ -427,11 +453,11 @@ public class MainUI extends JFrame {
         });
         // --------------------------------------------------
 
-        // Button Renderer/Editor
-        tblDanhSach.getColumnModel().getColumn(7).setCellRenderer(new DetailButtonRenderer());
-        tblDanhSach.getColumnModel().getColumn(7).setCellEditor(new DetailButtonEditor(new JCheckBox())); 
-        tblDanhSach.getColumnModel().getColumn(8).setCellRenderer(new AddButtonRenderer());
-        tblDanhSach.getColumnModel().getColumn(8).setCellEditor(new AddButtonEditor(new JCheckBox())); 
+        // --- Cập nhật lại chỉ số cột cho Button Renderer/Editor ---
+        tblDanhSach.getColumnModel().getColumn(8).setCellRenderer(new DetailButtonRenderer()); // Cột Chi tiết
+        tblDanhSach.getColumnModel().getColumn(8).setCellEditor(new DetailButtonEditor(new JCheckBox())); 
+        tblDanhSach.getColumnModel().getColumn(9).setCellRenderer(new AddButtonRenderer());    // Cột Thêm
+        tblDanhSach.getColumnModel().getColumn(9).setCellEditor(new AddButtonEditor(new JCheckBox())); 
     }
 
     private void capNhatGioHang() {
@@ -567,6 +593,21 @@ public class MainUI extends JFrame {
         if (nguoiDungHienTai == null) { 
             JOptionPane.showMessageDialog(this, "Chưa đăng nhập!"); return; 
         }
+        
+        // --- [LỚP BẢO VỆ MỚI: CHECK SESSION CHẾT] ---
+        if (nguoiDungHienTai.getMaNguoiDung() <= 0) {
+            JOptionPane.showMessageDialog(this, 
+                "Phiên làm việc không hợp lệ (Lỗi ID Nhân viên)!\nVui lòng đăng nhập lại.", 
+                "Lỗi hệ thống", 
+                JOptionPane.ERROR_MESSAGE);
+            
+            // Tự động đăng xuất để fix lỗi cho người dùng
+            this.dispose();
+            new LoginUI().setVisible(true);
+            return;
+        }
+        // ---------------------------------------------
+        
         // 2. Kiểm tra giỏ hàng
         if (bll.getGioHang().isEmpty()) { 
             JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng!"); return; 
@@ -592,13 +633,12 @@ public class MainUI extends JFrame {
         // 4. Xử lý Mã KM
         String maKM = null;
         Object itemSelect = cbKhuyenMai.getSelectedItem();
-        if (itemSelect != null) {
-            String kmStr = itemSelect.toString();
-            if (!"Không áp dụng".equals(kmStr)) {
-                int dashIndex = kmStr.indexOf("-");
-                if (dashIndex != -1) maKM = kmStr.substring(0, dashIndex).trim();
-                else maKM = kmStr.trim();
-            }
+        if (itemSelect != null && !itemSelect.toString().equals("Không áp dụng")) {
+            try {
+                // Cắt chuỗi an toàn
+                String raw = itemSelect.toString();
+                maKM = raw.contains("-") ? raw.split("-")[0].trim() : raw.trim();
+            } catch (Exception e) {}
         }
         if (maKM != null && maKM.isEmpty()) maKM = null;
 
@@ -715,6 +755,10 @@ public class MainUI extends JFrame {
         gbc.gridy++; p.add(new JLabel("Size: " + f.getKichThuoc()), gbc);
         gbc.gridy++; p.add(new JLabel("Kho: " + f.getSoLuong()), gbc);
         
+        // THÊM THÔNG TIN NHÀ CUNG CẤP VÀO ĐÂY
+        gbc.gridy++; 
+        p.add(new JLabel("Nhà cung cấp: " + (f.getTenNCC() != null ? f.getTenNCC() : "Không xác định")), gbc);
+        
         // Giá
         gbc.gridy++; 
         NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
@@ -768,7 +812,14 @@ public class MainUI extends JFrame {
         Double min = parseDouble(txtMinGia.getText());
         Double max = parseDouble(txtMaxGia.getText());
         String kt = "Tất cả".equals(cbKichThuoc.getSelectedItem()) ? null : (String) cbKichThuoc.getSelectedItem();
-        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, min, max, kt);
+        
+        // --- LẤY MÃ NCC (Nếu bạn chưa làm ComboBox NCC bên MainUI thì để là 0 hoặc null) ---
+        Integer maNCC = 0; 
+        // Nếu bạn đã thêm cbLocNCC thì dùng dòng dưới:
+        // if (cbLocNCC != null && cbLocNCC.getSelectedIndex() > 0) maNCC = ((NhaCungCapDTO)cbLocNCC.getSelectedItem()).getMaNCC();
+        
+        // Truyền thêm maNCC vào hàm
+        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, min, max, kt, maNCC);
         capNhatBangDanhSach(this.danhSachHienTai);
     }
     

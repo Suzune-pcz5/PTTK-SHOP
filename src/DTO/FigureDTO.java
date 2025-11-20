@@ -9,6 +9,8 @@ public class FigureDTO {
     private int soLuong;
     private String moTa;
     private String hinhAnh;
+    private int maNCC;
+    private String tenNCC;
 
     // Constructor
     public FigureDTO() {}
@@ -34,4 +36,10 @@ public class FigureDTO {
     public void setHinhAnh(String hinhAnh) { 
         this.hinhAnh = hinhAnh; 
     }
+    // Getter & Setter cho 2 thuộc tính mới
+    public int getMaNCC() { return maNCC; }
+    public void setMaNCC(int maNCC) { this.maNCC = maNCC; }
+
+    public String getTenNCC() { return tenNCC; }
+    public void setTenNCC(String tenNCC) { this.tenNCC = tenNCC; }
 }
