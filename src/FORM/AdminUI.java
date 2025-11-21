@@ -17,7 +17,7 @@ import java.io.File;
 import java.net.URL;
 import java.sql.*;
 import java.text.NumberFormat;
-import java.util.Map; // <--- QUAN TRỌNG: Sửa lỗi 'cannot find symbol class Map'
+import java.util.Map; //
 import java.util.Locale;
 import java.util.List;
 import java.util.ArrayList;
@@ -166,6 +166,39 @@ public class AdminUI extends JFrame {
         tabbedPane.addTab("Quản lý khuyến mãi", taoKhuyenMaiPanel());
         tabbedPane.addTab("Báo cáo thống kê", baoCaoPanel);
 
+        // --- [SỬA LẠI] SỰ KIỆN CHUYỂN TAB -> LOAD LẠI DỮ LIỆU ---
+        tabbedPane.addChangeListener(e -> {
+            int index = tabbedPane.getSelectedIndex();
+            switch (index) {
+                case 0: // Tổng quan
+                    // Thay vì xóa panel, ta gọi lại hàm tạo và set lại component cho tab 0
+                    tongQuanPanel = taoTongQuanPanel(); 
+                    tabbedPane.setComponentAt(0, tongQuanPanel);
+                    break;
+                case 1: // Nhân viên
+                    loadNhanVienData();
+                    break;
+                case 2: // Đơn hàng
+                    loadDonHangData();
+                    break;
+                case 3: // Sản phẩm
+                    loadSanPhamData();
+                    break;
+                case 4: // Kho
+                    loadLichSuNhapKho();
+                    loadComboBoxNhaCungCap(); 
+                    break;
+                case 5: // Nhà cung cấp
+                    loadNhaCungCapData();
+                    break;
+                case 6: // Khuyến mãi
+                     kmDAL.loadData(kmModel);
+                     break;
+                // Case 7 Báo cáo: Khi bấm nút Xem nó mới load nên ko cần auto
+            }
+        });
+        // -------------------------------------------------------------------
+        
         add(tabbedPane, BorderLayout.CENTER);
 
         JLabel footer = new JLabel("Mahiru shop", JLabel.CENTER);
@@ -1132,6 +1165,9 @@ public class AdminUI extends JFrame {
                     
                     ps.executeUpdate(); 
                     JOptionPane.showMessageDialog(dialog, "Lưu thành công!"); 
+                    
+                    triggerRealTimeUpdate(); // <--- CHÈN VÀO ĐÂY
+                    
                     loadSanPhamData(); 
                     dialog.dispose();
                 }
@@ -1181,6 +1217,9 @@ public class AdminUI extends JFrame {
                         ps.setString(1, currState ? "Mở" : "Tắt");
                         ps.setInt(2, id);
                         ps.executeUpdate();
+                        
+                        triggerRealTimeUpdate(); // <--- CHÈN VÀO ĐÂY
+                        
                     } catch (Exception ex) { 
                         ex.printStackTrace(); 
                     }
@@ -1428,6 +1467,9 @@ public class AdminUI extends JFrame {
                 
                 JOptionPane.showMessageDialog(this, "Nhập kho thành công!");
                 
+                triggerRealTimeUpdate(); // <--- CHÈN VÀO ĐÂY
+
+                loadSanPhamData(); // Tự refresh bảng Admin
                 // Hiện phiếu nhập
                 hienThiPhieuNhapPopup(maPhieu, sanPhamDangChonNhap, ncc.getTenNCC(), sl, gia, tong);
                 
@@ -1507,27 +1549,37 @@ public class AdminUI extends JFrame {
 
     private void loadLichSuNhapKho() {
         khoHistoryModel.setRowCount(0);
-        String sql = "SELECT n.ma_nhap, f.ten, n.so_luong_nhap, n.don_gia_nhap, n.tong_tien_nhap, ncc.ten_ncc, n.trang_thai " +
+        
+        // SQL Lấy dữ liệu
+        String sql = "SELECT n.ma_nhap, f.ten, n.so_luong_nhap, n.don_gia_nhap, n.tong_tien_nhap, ncc.ten_ncc, n.ngay_nhap, n.trang_thai " +
                      "FROM nhapkho n " +
                      "JOIN figure f ON n.figureId = f.id " +
                      "JOIN nhacungcap ncc ON n.ma_ncc = ncc.ma_ncc " +
-                     "ORDER BY n.ngay_nhap ASC LIMIT 50";
+                     "ORDER BY n.ngay_nhap DESC LIMIT 50"; // Nên để DESC để thấy đơn mới nhất lên đầu
 
         try (Connection conn = db.getConnect(); ResultSet rs = conn.createStatement().executeQuery(sql)) {
+            
             NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+            // [BỔ SUNG]: Khai báo định dạng ngày giờ
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+
             while (rs.next()) {
+                // [ĐÃ SỬA LẠI THỨ TỰ CHO KHỚP VỚI 9 CỘT]
                 khoHistoryModel.addRow(new Object[]{
-                    "PN" + rs.getInt("ma_nhap"),
-                    rs.getString("ten"),
-                    "+" + rs.getInt("so_luong_nhap"),
-                    nf.format(rs.getLong("don_gia_nhap")),
-                    nf.format(rs.getLong("tong_tien_nhap")),
-                    rs.getString("ten_ncc"),
-                    rs.getString("trang_thai"),
-                    "Hủy"
+                    "PN" + rs.getInt("ma_nhap"),             // 0. Mã
+                    rs.getString("ten"),                     // 1. Sản phẩm
+                    "+" + rs.getInt("so_luong_nhap"),        // 2. SL
+                    nf.format(rs.getLong("don_gia_nhap")),   // 3. Giá nhập
+                    nf.format(rs.getLong("tong_tien_nhap")), // 4. Tổng tiền
+                    rs.getString("ten_ncc"),                 // 5. NCC
+                    sdf.format(rs.getTimestamp("ngay_nhap")),// 6. Ngày (Đã khớp)
+                    rs.getString("trang_thai"),              // 7. Trạng thái
+                    "Hủy"                                    // 8. Nút Hủy
                 });
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+        }
     }
     
     private void hienThiPhieuNhapPopup(int maPhieu, FigureDTO sp, String tenNCC, int sl, long gia, long tong) {
@@ -1616,6 +1668,9 @@ public class AdminUI extends JFrame {
                     // Vì bạn đã có Trigger `tru_kho_khi_huy_nhap` trong SQL, ta KHÔNG cần code trừ kho ở đây nữa.
                     
                     JOptionPane.showMessageDialog(this, "Đã hủy phiếu nhập thành công!");
+                    
+                    triggerRealTimeUpdate(); // <--- CHÈN VÀO ĐÂY
+                    
                     loadLichSuNhapKho(); // Load lại bảng lịch sử
                     timSanPhamDeNhap();  // Load lại thông tin sản phẩm để thấy tồn kho giảm
                 } else {
@@ -2239,6 +2294,23 @@ public class AdminUI extends JFrame {
             txtKMMoTa.setText("");
         } else {
             JOptionPane.showMessageDialog(this, "Thao tác thất bại! (Kiểm tra trùng mã hoặc lỗi kết nối)");
+        }
+    }
+    
+    // Hàm bắn tín hiệu sang MainUI
+    private void triggerRealTimeUpdate() {
+        // 1. Cập nhật chính giao diện Admin (để Admin thấy số nhảy)
+        loadSanPhamData();
+        loadLichSuNhapKho();
+        loadNhaCungCapData();
+        // loadDonHangData(); // Nếu cần
+        
+        // 2. Bắn tín hiệu ép buộc MainUI cập nhật ngay lập tức
+        try {
+            // Gọi hàm static bên MainUI
+            FORM.MainUI.forceUpdateData(); 
+        } catch (Exception e) {
+            System.out.println("MainUI chưa mở hoặc không tìm thấy.");
         }
     }
 }

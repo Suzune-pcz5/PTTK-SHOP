@@ -25,6 +25,46 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainUI extends JFrame {
+    // 1. Biến tĩnh để lưu chính bản thân MainUI đang chạy
+    private static MainUI instance;
+
+    public MainUI(NguoiDungDTO nd) {
+        instance = this; // Gán instance là chính cửa sổ này khi khởi động
+        this.nguoiDungHienTai = nd;
+        initComponents();
+    }
+
+    // 2. Hàm "Cực đoan": Cho phép bên ngoài ép buộc MainUI cập nhật
+    public static void forceUpdateData() {
+        if (instance != null) {
+            System.out.println("Admin bắt buộc cập nhật dữ liệu...");
+            
+            // Lưu lại dòng đang chọn để không bị mất dấu
+            int selectedRow = instance.tblDanhSach.getSelectedRow();
+            int selectedId = -1;
+            if (selectedRow >= 0) {
+                try {
+                    selectedId = Integer.parseInt(instance.tblDanhSach.getValueAt(selectedRow, 0).toString());
+                } catch(Exception e){}
+            }
+
+            // Tải lại toàn bộ danh sách & Giỏ hàng
+            instance.taiDanhSach(); 
+            instance.capNhatGioHang(); 
+            instance.loadKhuyenMaiData(); // Load lại cả khuyến mãi nếu admin có thêm
+
+            // Khôi phục dòng chọn (nếu nó vẫn còn tồn tại)
+            if (selectedId != -1) {
+                for (int i = 0; i < instance.tblDanhSach.getRowCount(); i++) {
+                    int id = Integer.parseInt(instance.tblDanhSach.getValueAt(i, 0).toString());
+                    if (id == selectedId) {
+                        instance.tblDanhSach.setRowSelectionInterval(i, i);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     // --- KHAI BÁO BIẾN GIAO DIỆN ---
     private JTable tblDanhSach, tblGioHang;
@@ -56,11 +96,6 @@ public class MainUI extends JFrame {
     // =========================================================================
     // 1. CONSTRUCTOR & INIT
     // =========================================================================
-    public MainUI(NguoiDungDTO nd) {
-        this.nguoiDungHienTai = nd;
-        initComponents();
-    }
-
     private void initComponents() {
         setTitle("MAHIRU. - Quản Lý Bán Hàng");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
