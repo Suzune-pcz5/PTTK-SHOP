@@ -115,4 +115,16 @@ public class FigureDAL {
             return false;
         }
     }
+    
+    // 6. Xóa sản phẩm (Chỉ xóa được nếu chưa có giao dịch)
+    public boolean xoaSanPham(int id) {
+        try (Connection conn = new DBConnection().getConnect();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM figure WHERE id = ?")) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            // Lỗi do dính khóa ngoại (đã bán/nhập)
+            return false;
+        }
+    }
 }

@@ -36,4 +36,9 @@ public class NhaCungCapBLL {
     public boolean doiTrangThai(int maNCC, String trangThaiMoi) {
         return dal.doiTrangThai(maNCC, trangThaiMoi);
     }
+    
+    // 6. Xóa NCC
+    public boolean xoaNhaCungCap(int maNCC) {
+        return dal.xoaNhaCungCap(maNCC);
+    }
 }

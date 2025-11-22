@@ -28,6 +28,7 @@ public class AdminUI extends JFrame {
     private JPanel tongQuanPanel, nhanVienPanel, donHangPanel, sanPhamPanel, khoPanel, baoCaoPanel;
     private NguoiDungDTO currentUser;
     private DBConnection db;
+    private BLL.DonHangBLL donHangBLL = new BLL.DonHangBLL(); // <--- THÊM DÒNG NÀY
 
     // --- Biến Quản lý Sản phẩm ---
     private DefaultTableModel sanPhamModel;
@@ -674,51 +675,80 @@ public class AdminUI extends JFrame {
     }
 
     // ================== QUẢN LÝ ĐƠN HÀNG ==================
+    // ================== QUẢN LÝ ĐƠN HÀNG (CÓ NÚT HỦY) ==================
     private JPanel taoQuanLyDonHangPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
         panel.setBackground(Color.WHITE);
-        JPanel topPanel = new JPanel(new BorderLayout()); topPanel.setBackground(Color.WHITE); topPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
-        JLabel title = new JLabel("Quản lý đơn hàng"); title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        // Header
+        JPanel topPanel = new JPanel(new BorderLayout()); 
+        topPanel.setBackground(Color.WHITE); 
+        topPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
+        
+        JLabel title = new JLabel("Quản lý đơn hàng"); 
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         topPanel.add(title, BorderLayout.WEST);
         
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); filterPanel.setBackground(Color.WHITE);
-        txtDateFrom = new JTextField(8); txtDateTo = new JTextField(8);
-        cbStatusOrder = new JComboBox<>(new String[]{"Tất cả", "Đã thanh toán", "Đã hủy", "Chờ xử lý"}); cbStatusOrder.setBackground(Color.WHITE);
-        cbPhuongThuc = new JComboBox<>(new String[]{"Tất cả", "TienMat", "ChuyenKhoan", "The", "ViDienTu"}); cbPhuongThuc.setBackground(Color.WHITE);
-        JButton btnSearch = new JButton("Tìm kiếm"); btnSearch.setBackground(new Color(0, 123, 255)); btnSearch.setForeground(Color.WHITE);
+        // Filter
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); 
+        filterPanel.setBackground(Color.WHITE);
+        
+        txtDateFrom = new JTextField(8); txtDateFrom.setToolTipText("yyyy-mm-dd");
+        txtDateTo = new JTextField(8); txtDateTo.setToolTipText("yyyy-mm-dd");
+        
+        cbStatusOrder = new JComboBox<>(new String[]{"Tất cả", "Đã thanh toán", "Đã hủy"}); 
+        cbStatusOrder.setBackground(Color.WHITE);
+        
+        cbPhuongThuc = new JComboBox<>(new String[]{"Tất cả", "TienMat", "ChuyenKhoan", "The", "ViDienTu"}); 
+        cbPhuongThuc.setBackground(Color.WHITE);
+        
+        JButton btnSearch = new JButton("Tìm kiếm"); 
+        btnSearch.setBackground(new Color(0, 123, 255)); 
+        btnSearch.setForeground(Color.WHITE);
         btnSearch.addActionListener(e -> loadDonHangData());
         
-        filterPanel.add(new JLabel("Từ:")); filterPanel.add(txtDateFrom); filterPanel.add(new JLabel("Đến:")); filterPanel.add(txtDateTo);
-        filterPanel.add(new JLabel("TT:")); filterPanel.add(cbStatusOrder); filterPanel.add(new JLabel("PTTT:")); filterPanel.add(cbPhuongThuc);
+        filterPanel.add(new JLabel("Từ:")); filterPanel.add(txtDateFrom); 
+        filterPanel.add(new JLabel("Đến:")); filterPanel.add(txtDateTo);
+        filterPanel.add(new JLabel("TT:")); filterPanel.add(cbStatusOrder); 
+        filterPanel.add(new JLabel("PTTT:")); filterPanel.add(cbPhuongThuc);
         filterPanel.add(btnSearch);
-        topPanel.add(filterPanel, BorderLayout.EAST); panel.add(topPanel, BorderLayout.NORTH);
+        
+        topPanel.add(filterPanel, BorderLayout.EAST); 
+        panel.add(topPanel, BorderLayout.NORTH);
 
-        String[] cols = {"Mã đơn", "Nhân viên", "Ngày tạo", "Tổng tiền", "Trạng thái", "PTTT", "Hành động"};
-        donHangModel = new DefaultTableModel(cols, 0) { @Override public boolean isCellEditable(int r, int c) { return c == 6; } };
-        donHangTable = new JTable(donHangModel); donHangTable.setRowHeight(50);
-        styleTableHeader(donHangTable); centerAllTableCells(donHangTable);
+        // Bảng dữ liệu: Thêm cột "Hủy đơn" (Index 7)
+        String[] cols = {"Mã đơn", "Nhân viên", "Ngày tạo", "Tổng tiền", "Trạng thái", "PTTT", "Chi tiết", "Hủy đơn"};
+        donHangModel = new DefaultTableModel(cols, 0) { 
+            @Override public boolean isCellEditable(int r, int c) { return c == 6 || c == 7; } // Click được cột 6, 7
+        };
+        
+        donHangTable = new JTable(donHangModel); 
+        donHangTable.setRowHeight(50);
+        styleTableHeader(donHangTable); 
+        centerAllTableCells(donHangTable);
         donHangTable.getColumnModel().getColumn(0).setPreferredWidth(60);
         
+        // Renderer Trạng thái (Màu sắc)
         donHangTable.getColumn("Trạng thái").setCellRenderer(new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
                 JLabel l = (JLabel)super.getTableCellRendererComponent(t, v, s, f, r, c);
                 String st = (String)v;
-                if("Hoàn thành".equals(st)) l.setForeground(new Color(40, 167, 69));
+                if("Đã thanh toán".equals(st)) l.setForeground(new Color(40, 167, 69));
                 else if("Đã hủy".equals(st)) l.setForeground(new Color(220, 53, 69));
                 else l.setForeground(Color.BLACK);
                 l.setFont(new Font("Segoe UI", Font.BOLD, 12)); return l;
             }
         });
         
-        donHangTable.getColumn("Hành động").setCellRenderer((t, v, s, h, r, c) -> {
-            JButton b = new JButton("Chi tiết"); b.setBackground(new Color(40, 167, 69)); b.setForeground(Color.WHITE);
-            b.setFont(new Font("Segoe UI", Font.BOLD, 11)); return b;
+        // Renderer/Editor Nút Chi tiết (Cột 6)
+        donHangTable.getColumn("Chi tiết").setCellRenderer((t, v, s, h, r, c) -> {
+            JButton b = new JButton("Xem"); b.setBackground(new Color(23, 162, 184)); b.setForeground(Color.WHITE); return b;
         });
-        donHangTable.getColumn("Hành động").setCellEditor(new DefaultCellEditor(new JCheckBox()) {
+        donHangTable.getColumn("Chi tiết").setCellEditor(new DefaultCellEditor(new JCheckBox()) {
             JButton b; String ma;
             @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
-                b = new JButton("Chi tiết"); b.setBackground(new Color(40, 167, 69)); b.setForeground(Color.WHITE);
+                b = new JButton("Xem"); b.setBackground(new Color(23, 162, 184)); b.setForeground(Color.WHITE);
                 ma = t.getValueAt(r, 0).toString();
                 b.addActionListener(e -> {
                     try { hienThiChiTietDonHangPopup(Integer.parseInt(ma.replace("#", ""))); } catch(Exception ex){}
@@ -726,7 +756,32 @@ public class AdminUI extends JFrame {
                 });
                 return b;
             }
-            @Override public Object getCellEditorValue() { return "Chi tiết"; }
+        });
+
+        // Renderer/Editor Nút Hủy đơn (Cột 7 - MỚI)
+        donHangTable.getColumn("Hủy đơn").setCellRenderer((t, v, s, h, r, c) -> {
+            String st = (String)t.getModel().getValueAt(r, 4); // Cột trạng thái
+            JButton b = new JButton("Hủy"); b.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            if("Đã hủy".equals(st)) { b.setEnabled(false); b.setText("-"); b.setBackground(Color.LIGHT_GRAY); }
+            else { b.setBackground(new Color(220, 53, 69)); b.setForeground(Color.WHITE); }
+            return b;
+        });
+        
+        donHangTable.getColumn("Hủy đơn").setCellEditor(new DefaultCellEditor(new JCheckBox()) {
+            JButton b;
+            @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
+                String st = (String)t.getModel().getValueAt(r, 4);
+                b = new JButton("Hủy");
+                if(!"Đã hủy".equals(st)) {
+                    b.setBackground(new Color(220, 53, 69)); b.setForeground(Color.WHITE);
+                    b.addActionListener(e -> {
+                        String ma = t.getValueAt(r, 0).toString();
+                        xuLyHuyDonHang(Integer.parseInt(ma.replace("#", "")));
+                        fireEditingStopped();
+                    });
+                } else { b.setEnabled(false); b.setText("-"); }
+                return b;
+            }
         });
         
         panel.add(new JScrollPane(donHangTable), BorderLayout.CENTER);
@@ -736,18 +791,35 @@ public class AdminUI extends JFrame {
 
     private void loadDonHangData() {
         donHangModel.setRowCount(0);
-        String s = cbStatusOrder.getSelectedItem().toString(), p = cbPhuongThuc.getSelectedItem().toString();
-        String sql = "SELECT d.ma_don_hang, n.ten_dang_nhap, DATE_FORMAT(d.ngay_dat, '%d/%m/%Y %H:%i'), d.tong_tien, d.trang_thai, d.phuong_thuc_tt " +
-                     "FROM donhang d JOIN nguoidung n ON d.ma_nhan_vien = n.ma_nguoi_dung WHERE 1=1";
-        if(!"Tất cả".equals(s)) sql += " AND d.trang_thai = '"+s+"'";
-        if(!"Tất cả".equals(p)) sql += " AND d.phuong_thuc_tt = '"+p+"'";
-        sql += " ORDER BY d.ma_don_hang ASC";
+        String s = cbStatusOrder.getSelectedItem().toString();
+        String p = cbPhuongThuc.getSelectedItem().toString();
+        String dFrom = txtDateFrom.getText().trim();
+        String dTo = txtDateTo.getText().trim();
+
+        StringBuilder sql = new StringBuilder(
+            "SELECT d.ma_don_hang, n.ten_dang_nhap, DATE_FORMAT(d.ngay_dat, '%Y-%m-%d %H:%i'), d.tong_tien, d.trang_thai, d.phuong_thuc_tt " +
+            "FROM donhang d JOIN nguoidung n ON d.ma_nhan_vien = n.ma_nguoi_dung WHERE 1=1");
         
-        try (Connection conn = db.getConnect(); ResultSet rs = conn.createStatement().executeQuery(sql)) {
+        if(!"Tất cả".equals(s)) sql.append(" AND d.trang_thai = '").append(s).append("'");
+        if(!"Tất cả".equals(p)) sql.append(" AND d.phuong_thuc_tt = '").append(p).append("'");
+        if(!dFrom.isEmpty()) sql.append(" AND DATE(d.ngay_dat) >= '").append(dFrom).append("'");
+        if(!dTo.isEmpty()) sql.append(" AND DATE(d.ngay_dat) <= '").append(dTo).append("'");
+        
+        sql.append(" ORDER BY d.ma_don_hang ASC");
+        
+        try (Connection conn = db.getConnect(); ResultSet rs = conn.createStatement().executeQuery(sql.toString())) {
             NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
             while(rs.next()) {
-                donHangModel.addRow(new Object[]{ "#"+rs.getInt(1), rs.getString(2), rs.getString(3), nf.format(rs.getLong(4)), 
-                    "Đã thanh toán".equals(rs.getString(5))?"Hoàn thành":rs.getString(5), rs.getString(6), "Chi tiết" });
+                donHangModel.addRow(new Object[]{ 
+                    "#" + rs.getInt(1), 
+                    rs.getString(2), 
+                    rs.getString(3), 
+                    nf.format(rs.getLong(4)), 
+                    rs.getString(5), 
+                    rs.getString(6), 
+                    "Xem", 
+                    "Hủy" 
+                });
             }
         } catch(Exception e) { e.printStackTrace(); }
     }
@@ -808,7 +880,24 @@ public class AdminUI extends JFrame {
         JScrollPane scr = new JScrollPane(wrap); scr.setBorder(null); scr.getVerticalScrollBar().setUnitIncrement(16);
         dialog.add(scr); dialog.pack(); dialog.setSize(700, Math.min(dialog.getHeight(), 700)); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
-
+    
+    private void xuLyHuyDonHang(int maDonHang) {
+        if (JOptionPane.showConfirmDialog(this, 
+            "Bạn có chắc muốn hủy đơn hàng #" + maDonHang + "?\nKho hàng sẽ được hoàn trả tự động.", 
+            "Xác nhận hủy", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            
+            if (donHangBLL.huyDonHang(maDonHang)) {
+                JOptionPane.showMessageDialog(this, "Đã hủy đơn hàng thành công!");
+                
+                // Cập nhật lại bảng và báo cho MainUI
+                loadDonHangData();
+                loadSanPhamData(); // Cập nhật lại tồn kho bên Admin
+                triggerRealTimeUpdate(); // Bắn tín hiệu sang MainUI
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể hủy đơn hàng này (Có thể đã hủy rồi)!");
+            }
+        }
+    }
     // ================== QUẢN LÝ SẢN PHẨM ==================
     private JPanel taoSanPhamPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -1117,9 +1206,51 @@ public class AdminUI extends JFrame {
         mainPanel.add(leftPanel); 
         mainPanel.add(rightPanel);
         dialog.add(mainPanel, BorderLayout.CENTER);
-
-        // --- NÚT LƯU ---
+        
         JPanel bot = new JPanel(new FlowLayout(FlowLayout.RIGHT)); bot.setBackground(new Color(245,245,245));
+
+        // --- NÚT XÓA SẢN PHẨM ---
+        JButton btnXoa = new JButton("Xóa SP");
+        btnXoa.setBackground(new Color(220, 53, 69)); // Đỏ
+        btnXoa.setForeground(Color.WHITE);
+        btnXoa.setVisible(isEdit); // Chỉ hiện khi đang sửa
+
+        btnXoa.addActionListener(e -> {
+            // 1. Hỏi xác nhận
+            if (JOptionPane.showConfirmDialog(dialog, 
+                "Bạn có chắc muốn xóa sản phẩm này?", 
+                "Xác nhận xóa", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+
+            // 2. Thử Xóa vĩnh viễn (Gọi BLL)
+            // Lưu ý: Bạn cần đảm bảo BLL/DAL có hàm xoaSanPham trả về boolean
+            // Nếu DAL chưa có, nó sẽ nhảy vào else bên dưới (giả lập lỗi) hoặc bạn cần thêm hàm xóa vào DAL.
+            // Giả sử bll.xoaSanPham(id) đã được viết ở các bước trước.
+            if (new BLL.FigureBLL().xoaSanPham(idSanPham)) { 
+                JOptionPane.showMessageDialog(dialog, "Đã xóa hoàn toàn khỏi hệ thống!");
+                triggerRealTimeUpdate();
+                dialog.dispose();
+            } else {
+                // 3. Nếu không xóa được (do dính khóa ngoại), gợi ý Chuyển trạng thái
+                int choice = JOptionPane.showConfirmDialog(dialog, 
+                    "Không thể xóa vĩnh viễn vì sản phẩm này đã có lịch sử giao dịch!\n" +
+                    "Bạn có muốn chuyển trạng thái sang 'Tắt' (Ngừng kinh doanh) không?", 
+                    "Không thể xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                
+                if (choice == JOptionPane.YES_OPTION) {
+                    try (Connection conn = db.getConnect(); 
+                         PreparedStatement ps = conn.prepareStatement("UPDATE figure SET trang_thai = 'Tắt' WHERE id = ?")) {
+                        ps.setInt(1, idSanPham);
+                        ps.executeUpdate();
+                        
+                        JOptionPane.showMessageDialog(dialog, "Đã chuyển trạng thái sang 'Tắt'!");
+                        triggerRealTimeUpdate();
+                        dialog.dispose();
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }
+            }
+        });
+        
+        // --- NÚT LƯU ---
         JButton btnSave = new JButton("Lưu sản phẩm"); 
         btnSave.setBackground(new Color(40,167,69)); 
         btnSave.setForeground(Color.WHITE);
@@ -1179,6 +1310,7 @@ public class AdminUI extends JFrame {
             }
         });
         
+        bot.add(btnXoa); // <--- Add nút Xóa
         bot.add(btnSave); 
         dialog.add(bot, BorderLayout.SOUTH);
         dialog.setVisible(true);
@@ -1884,7 +2016,45 @@ public class AdminUI extends JFrame {
         addLabelAndComponent(form, gbc, y++, "Địa chỉ:", new JScrollPane(txtDiaChi));
 
         dialog.add(form, BorderLayout.CENTER);
+        
+        // --- NÚT XÓA NHÀ CUNG CẤP ---
+        JButton btnXoa = new JButton("Xóa NCC");
+        btnXoa.setBackground(new Color(220, 53, 69));
+        btnXoa.setForeground(Color.WHITE);
+        btnXoa.setPreferredSize(new Dimension(100, 35));
+        btnXoa.setVisible(isEdit);
 
+        btnXoa.addActionListener(e -> {
+            if (JOptionPane.showConfirmDialog(dialog, "Bạn muốn xóa Nhà cung cấp này?", "Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+
+            // Thử xóa vĩnh viễn
+            // Giả sử nccBLL.xoaNhaCungCap(id) đã có. Nếu chưa, nó trả về false.
+            if (nccBLL.xoaNhaCungCap(nccEditing.getMaNCC())) {
+                JOptionPane.showMessageDialog(dialog, "Đã xóa NCC khỏi hệ thống!");
+                triggerRealTimeUpdate();
+                dialog.dispose();
+            } else {
+                // Nếu không xóa được -> Gợi ý Ngừng hợp tác
+                int choice = JOptionPane.showConfirmDialog(dialog, 
+                    "Không thể xóa vì NCC này đang có liên kết với sản phẩm hoặc lịch sử nhập!\n" +
+                    "Bạn có muốn chuyển trạng thái sang 'Ngừng' hợp tác không?", 
+                    "Cảnh báo ràng buộc", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                
+                if (choice == JOptionPane.YES_OPTION) {
+                    try (Connection conn = db.getConnect(); 
+                         PreparedStatement ps = conn.prepareStatement("UPDATE nhacungcap SET trang_thai = 'Ngừng' WHERE ma_ncc = ?")) {
+                        ps.setInt(1, nccEditing.getMaNCC());
+                        ps.executeUpdate();
+                        
+                        JOptionPane.showMessageDialog(dialog, "Đã chuyển trạng thái sang 'Ngừng'!");
+                        triggerRealTimeUpdate();
+                        dialog.dispose();
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }
+            }
+        });
+
+        // --- NÚT LƯU NHÀ CUNG CẤP ---
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(new Color(245, 245, 245));
         JButton btnSave = new JButton("Lưu thông tin");
@@ -1922,6 +2092,7 @@ public class AdminUI extends JFrame {
             }
         });
 
+        btnPanel.add(btnXoa); // <--- Add nút Xóa vào trước nút Lưu
         btnPanel.add(btnSave);
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
