@@ -22,6 +22,7 @@ import java.sql.PreparedStatement; // Thêm import
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat; // <--- THÊM DÒNG NÀY
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -209,6 +210,23 @@ public class MainUI extends JFrame {
         // Panel User
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         right.setOpaque(false);
+        
+        // [MỚI] Nút quay về Admin (Chỉ hiện nếu là Admin)
+        if (nguoiDungHienTai != null && "Admin".equalsIgnoreCase(nguoiDungHienTai.getVaiTro())) {
+            JButton btnAdmin = new JButton("Về trang Quản lý");
+            btnAdmin.setBackground(new Color(23, 162, 184)); // Xanh dương
+            btnAdmin.setForeground(Color.WHITE);
+            btnAdmin.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnAdmin.setFocusPainted(false);
+            btnAdmin.setPreferredSize(new Dimension(140, 35)); // Kích thước vừa phải
+            btnAdmin.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
+            btnAdmin.addActionListener(e -> {
+                this.dispose(); // Đóng MainUI
+                new AdminUI(nguoiDungHienTai).setVisible(true); // Mở lại AdminUI
+            });
+            right.add(btnAdmin);
+        }
         
         if (lblTenNguoiDung == null) {
              lblTenNguoiDung = new JLabel();
@@ -515,7 +533,7 @@ public class MainUI extends JFrame {
             sql.append(" AND d.ma_nhan_vien = ").append(nguoiDungHienTai.getMaNguoiDung());
         }
 
-        sql.append(" ORDER BY d.ma_don_hang DESC");
+        sql.append(" ORDER BY d.ma_don_hang ASC");
         
         try (Connection conn = new DBConnection().getConnect(); 
              ResultSet rs = conn.createStatement().executeQuery(sql.toString())) {
@@ -529,50 +547,110 @@ public class MainUI extends JFrame {
     }
     
     // Popup chi tiết cho MainUI (Chỉ Xem, không Sửa)
+    // Popup xem lại lịch sử (Tab Tra cứu) - Giao diện HTML chuẩn
     private void hienThiChiTietDonHangPopup(int maDonHang) {
         JDialog dialog = new JDialog(this, "Chi tiết đơn hàng #" + maDonHang, true);
+        dialog.setSize(500, 650);
+        dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
-        JPanel content = new JPanel(); content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBackground(new Color(245, 245, 245)); content.setBorder(new EmptyBorder(20, 40, 20, 40));
         
+        // Dùng JEditorPane hiển thị HTML
+        JEditorPane editorPane = new JEditorPane();
+        editorPane.setContentType("text/html");
+        editorPane.setEditable(false);
+        editorPane.setBackground(Color.WHITE);
+        
+        NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+
         try (Connection conn = new DBConnection().getConnect()) {
-            PreparedStatement ps = conn.prepareStatement("SELECT ngay_dat, trang_thai, tong_tien, phuong_thuc_tt FROM donhang WHERE ma_don_hang=?");
-            ps.setInt(1, maDonHang); ResultSet rs = ps.executeQuery();
+            // 1. Lấy thông tin chung
+            String sql = "SELECT d.ngay_dat, d.trang_thai, d.tong_tien, d.phuong_thuc_tt, n.ten_dang_nhap " +
+                         "FROM donhang d JOIN nguoidung n ON d.ma_nhan_vien = n.ma_nguoi_dung " +
+                         "WHERE d.ma_don_hang=?";
+            
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setInt(1, maDonHang);
+            ResultSet rs = ps.executeQuery();
+
             if (rs.next()) {
-                JPanel h = new JPanel(new BorderLayout()); h.setBackground(Color.WHITE); h.setBorder(new EmptyBorder(10,20,10,20));
-                JLabel id = new JLabel("HÓA ĐƠN #"+maDonHang); id.setFont(new Font("Segoe UI", Font.BOLD, 18));
-                JLabel info = new JLabel(rs.getString("ngay_dat") + " | " + rs.getString("trang_thai")); info.setForeground(Color.GRAY);
-                JPanel left = new JPanel(new GridLayout(2,1)); left.setBackground(Color.WHITE); left.add(id); left.add(info);
-                h.add(left, BorderLayout.WEST);
-                content.add(h); content.add(Box.createVerticalStrut(15));
+                long tongTien = rs.getLong("tong_tien");
+                String ngay = sdf.format(rs.getTimestamp("ngay_dat"));
+                String thuNgan = rs.getString("ten_dang_nhap");
+                String pttt = rs.getString("phuong_thuc_tt");
                 
-                JPanel list = new JPanel(); list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS)); list.setBackground(Color.WHITE);
-                PreparedStatement ps2 = conn.prepareStatement("SELECT f.ten, f.hinh_anh, f.loai, c.so_luong, c.gia_ban, c.thanh_tien FROM chitiet_donhang c JOIN figure f ON c.figureId=f.id WHERE c.donhangId=?");
-                ps2.setInt(1, maDonHang); ResultSet rs2 = ps2.executeQuery();
-                while(rs2.next()) {
-                    JPanel item = new JPanel(new BorderLayout(15, 0)); item.setBackground(Color.WHITE); item.setBorder(new EmptyBorder(5, 15, 5, 15));
-                    ImageIcon icon = loadResizedIcon(rs2.getString("hinh_anh"), 40, 40);
-                    JLabel img = new JLabel(); img.setPreferredSize(new Dimension(40,40)); if(icon!=null) img.setIcon(icon);
-                    item.add(img, BorderLayout.WEST);
-                    JPanel c = new JPanel(new GridLayout(2,1)); c.setBackground(Color.WHITE);
-                    JLabel n = new JLabel(rs2.getString("ten")); n.setFont(new Font("Segoe UI", Font.BOLD, 13));
-                    JLabel d = new JLabel(rs2.getString("loai") + " | SL: " + rs2.getInt("so_luong")); d.setForeground(Color.GRAY);
-                    c.add(n); c.add(d); item.add(c, BorderLayout.CENTER);
-                    item.add(new JLabel(String.format("%,d", rs2.getLong("thanh_tien"))), BorderLayout.EAST);
-                    list.add(item); list.add(new JSeparator());
+                // --- HTML START ---
+                StringBuilder html = new StringBuilder();
+                html.append("<html><body style='font-family: Segoe UI, sans-serif; padding: 20px;'>");
+                
+                // Header
+                html.append("<div style='text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;'>");
+                html.append("<h1 style='color: #007bff; margin: 0;'>MAHIRU SHOP</h1>");
+                html.append("<p style='font-size: 10px; color: gray;'>BẢN SAO HÓA ĐƠN</p></div>"); // Ghi chú bản sao
+                
+                // Info
+                html.append("<div style='margin-top: 20px;'><table style='width: 100%; font-size: 12px;'>");
+                html.append("<tr><td><b>Mã HĐ:</b> #").append(maDonHang).append("</td>");
+                html.append("<td style='text-align: right;'><b>Ngày:</b> ").append(ngay).append("</td></tr>");
+                html.append("<tr><td><b>Thu ngân:</b> ").append(thuNgan).append("</td>");
+                html.append("<td style='text-align: right;'><b>PTTT:</b> ").append(pttt).append("</td></tr>");
+                html.append("</table></div>");
+
+                // Table Items
+                html.append("<br><table style='width: 100%; border-collapse: collapse; font-size: 12px;'>");
+                html.append("<tr style='background-color: #f2f2f2; text-align: left;'><th style='padding: 8px; border-bottom: 1px solid #ddd;'>Sản phẩm</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: center;'>SL</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: right;'>Đơn giá</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: right;'>T.Tiền</th></tr>");
+
+                // 2. Lấy chi tiết sản phẩm
+                PreparedStatement ps2 = conn.prepareStatement(
+                    "SELECT f.ten, c.so_luong, c.gia_ban, c.thanh_tien FROM chitiet_donhang c JOIN figure f ON c.figureId=f.id WHERE c.donhangId=?");
+                ps2.setInt(1, maDonHang);
+                ResultSet rs2 = ps2.executeQuery();
+                
+                long tongHang = 0;
+                while (rs2.next()) {
+                    long tt = rs2.getLong("thanh_tien");
+                    tongHang += tt;
+                    html.append("<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'>").append(rs2.getString("ten")).append("</td>");
+                    html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: center;'>").append(rs2.getInt("so_luong")).append("</td>");
+                    html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>").append(nf.format(rs2.getLong("gia_ban"))).append("</td>");
+                    html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>").append(nf.format(tt)).append("</td></tr>");
                 }
-                content.add(list); content.add(Box.createVerticalStrut(10));
+                html.append("</table>");
+
+                // Footer Totals
+                long giamGia = tongHang - tongTien;
+                html.append("<div style='margin-top: 15px; text-align: right;'>");
+                html.append("<p style='margin: 5px;'>Tổng tiền hàng: <b>").append(nf.format(tongHang)).append("</b></p>");
+                if (giamGia > 0) {
+                    html.append("<p style='margin: 5px; color: green;'>Giảm giá: -").append(nf.format(giamGia)).append("</p>");
+                }
+                html.append("<h2 style='color: #dc3545; margin-top: 10px;'>TỔNG CỘNG: ").append(nf.format(tongTien)).append("</h2>");
+                html.append("</div>");
                 
-                JPanel sum = new JPanel(new GridLayout(0,2)); sum.setBackground(Color.WHITE); sum.setBorder(new EmptyBorder(20,25,20,25));
-                sum.add(new JLabel("PTTT:")); sum.add(new JLabel(rs.getString("phuong_thuc_tt"), JLabel.RIGHT));
-                sum.add(new JLabel("Tổng:")); JLabel totalLabel = new JLabel(String.format("%,d đ", rs.getLong("tong_tien")), JLabel.RIGHT); totalLabel.setForeground(Color.RED); totalLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-                sum.add(totalLabel);
-                content.add(sum);
+                html.append("<br><hr><div style='text-align: center; font-style: italic; color: gray; font-size: 11px;'><p>Cảm ơn quý khách!</p></div>");
+                html.append("</body></html>");
+                
+                editorPane.setText(html.toString());
             }
-        } catch(Exception e) {}
+        } catch (Exception e) { e.printStackTrace(); }
         
-        JScrollPane scr = new JScrollPane(content); scr.setBorder(null); scr.getVerticalScrollBar().setUnitIncrement(16);
-        dialog.add(scr); dialog.pack(); dialog.setSize(400, 550); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
+        dialog.add(new JScrollPane(editorPane), BorderLayout.CENTER);
+        
+        // Nút In & Đóng
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBackground(Color.WHITE);
+        
+        JButton btnPrint = new JButton("🖨 In lại");
+        btnPrint.setBackground(new Color(0, 123, 255)); btnPrint.setForeground(Color.WHITE);
+        btnPrint.addActionListener(e -> { try { editorPane.print(); } catch(Exception ex){} });
+        
+        JButton btnClose = new JButton("Đóng");
+        btnClose.addActionListener(e -> dialog.dispose());
+        
+        btnPanel.add(btnPrint); btnPanel.add(btnClose);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+        
+        dialog.setVisible(true);
     }
 
     // Hàm hiển thị chi tiết sản phẩm (Dùng cho nút Chi tiết ở bảng bên trái)
@@ -812,44 +890,178 @@ public class MainUI extends JFrame {
     }
 
     private void thanhToan() {
-        if (nguoiDungHienTai == null) { JOptionPane.showMessageDialog(this, "Chưa đăng nhập!"); return; }
-        if (nguoiDungHienTai.getMaNguoiDung() <= 0) { JOptionPane.showMessageDialog(this, "Phiên làm việc lỗi, vui lòng đăng nhập lại!", "Lỗi", JOptionPane.ERROR_MESSAGE); this.dispose(); new LoginUI().setVisible(true); return; }
-        if (bll.getGioHang().isEmpty()) { JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng!"); return; }
-        String pttt = (String) cbPhuongThucTT.getSelectedItem();
-        if ("Tiền mặt".equals(pttt)) {
-            try {
-                String textTien = txtTienKhachDua.getText().replace(".", "").replace(",", "").trim();
-                if (textTien.isEmpty()) { JOptionPane.showMessageDialog(this, "Vui lòng nhập tiền khách đưa!"); return; }
-                long khachDua = Long.parseLong(textTien);
-                if (khachDua < tongTienHienTai) { JOptionPane.showMessageDialog(this, "Khách đưa chưa đủ tiền!"); return; }
-            } catch (Exception e) { JOptionPane.showMessageDialog(this, "Tiền nhập không hợp lệ!"); return; }
+        // 1. Kiểm tra các điều kiện cơ bản
+        if (nguoiDungHienTai == null) { 
+            JOptionPane.showMessageDialog(this, "Chưa đăng nhập!"); return; 
         }
+        if (nguoiDungHienTai.getMaNguoiDung() <= 0) { 
+            JOptionPane.showMessageDialog(this, "Phiên làm việc lỗi, vui lòng đăng nhập lại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            this.dispose(); new LoginUI().setVisible(true); return;
+        }
+        if (bll.getGioHang().isEmpty()) { 
+            JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng!"); return; 
+        }
+        
+        // 2. Xử lý tiền khách đưa
+        String pttt = (String) cbPhuongThucTT.getSelectedItem();
+        long tienKhach = 0; // <--- KHAI BÁO Ở ĐÂY ĐỂ KHÔNG BỊ LỖI
+
+        try {
+            String textTien = txtTienKhachDua.getText().replace(".", "").replace(",", "").trim();
+            if (!textTien.isEmpty()) {
+                tienKhach = Long.parseLong(textTien);
+            }
+        } catch (Exception e) {
+            // Nếu nhập lỗi thì thôi, để 0
+        }
+        
+        // Logic kiểm tra tiền
+        if ("Tiền mặt".equals(pttt)) {
+            if (tienKhach == 0) { 
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập tiền khách đưa!"); return; 
+            }
+            if (tienKhach < tongTienHienTai) { 
+                JOptionPane.showMessageDialog(this, "Khách đưa chưa đủ tiền!"); return; 
+            }
+        } else {
+            // Nếu là Chuyển khoản/Ví/Thẻ mà khách không nhập tiền (hoặc nhập 0) -> Tự điền bằng đúng tổng tiền
+            if (tienKhach == 0) {
+                tienKhach = tongTienHienTai;
+            }
+            // Nếu khách có nhập (ví dụ chuyển dư), thì giữ nguyên số khách nhập để tính thừa
+        }
+
+        // 3. Xử lý Mã Khuyến Mãi
         String maKM = null;
         Object itemSelect = cbKhuyenMai.getSelectedItem();
         if (itemSelect != null && !itemSelect.toString().equals("Không áp dụng")) {
-            try { String raw = itemSelect.toString(); maKM = raw.contains("-") ? raw.split("-")[0].trim() : raw.trim(); } catch (Exception e) {}
+            try { 
+                String raw = itemSelect.toString(); 
+                maKM = raw.contains("-") ? raw.split("-")[0].trim() : raw.trim(); 
+            } catch (Exception e) {}
         }
         if (maKM != null && maKM.isEmpty()) maKM = null;
-        String ptttDB = switch(pttt) { case "Tiền mặt" -> "TienMat"; case "Chuyển khoản" -> "ChuyenKhoan"; case "Thẻ" -> "The"; default -> "ViDienTu"; };
+        
+        // 4. Map phương thức thanh toán sang Database
+        String ptttDB = switch(pttt) { 
+            case "Tiền mặt" -> "TienMat"; 
+            case "Chuyển khoản" -> "ChuyenKhoan"; 
+            case "Thẻ" -> "The"; 
+            default -> "ViDienTu"; 
+        };
+        
+        // 5. Gọi BLL xử lý thanh toán
         DonHangDTO donHang = bll.thanhToan(nguoiDungHienTai.getMaNguoiDung(), ptttDB, maKM);
+        
         if (donHang != null) {
-            capNhatGioHang(); taiDanhSach(); txtTienKhachDua.setText(""); lblTienThua.setText("0 đ"); cbKhuyenMai.setSelectedIndex(0);
-            JOptionPane.showMessageDialog(this, "Thanh toán thành công!"); hienThiPopupHoaDon(donHang);
-        } else { JOptionPane.showMessageDialog(this, "Lỗi thanh toán!"); }
+            // Tính tiền thừa
+            long tienThua = tienKhach - (long)donHang.getTongTien();
+            
+            // Cập nhật giao diện
+            capNhatGioHang(); 
+            taiDanhSach();    
+            txtTienKhachDua.setText("");
+            lblTienThua.setText("0 đ");
+            cbKhuyenMai.setSelectedIndex(0);
+            
+            JOptionPane.showMessageDialog(this, "Thanh toán thành công!");
+            
+            // Hiển thị hóa đơn (Truyền đủ 3 tham số)
+            hienThiPopupHoaDon(donHang, tienKhach, tienThua);
+            
+        } else {
+            JOptionPane.showMessageDialog(this, "Lỗi thanh toán!");
+        }
     }
 
-    private void hienThiPopupHoaDon(DonHangDTO donHang) {
-        JDialog d = new JDialog(this, "HÓA ĐƠN THANH TOÁN", true); d.setSize(400, 500); d.setLocationRelativeTo(this);
-        JTextArea txt = new JTextArea(); txt.setFont(new Font("Consolas", Font.PLAIN, 13)); txt.setEditable(false);
-        StringBuilder sb = new StringBuilder();
-        sb.append("        MAHIRU SHOP\n"); sb.append("---------------------------\n");
-        sb.append("Mã ĐH: ").append(donHang.getMaDonHang()).append("\n"); sb.append("Ngày: ").append(donHang.getNgayDat()).append("\n"); sb.append("---------------------------\n");
-        for(GioHangItemDTO i : donHang.getGioHang()) {
-            sb.append(String.format("%-20s x%d\n", i.getFigure().getTen().length()>20?i.getFigure().getTen().substring(0,18)+"..":i.getFigure().getTen(), i.getSoLuong()));
-            sb.append(String.format("%25s\n", String.format("%,.0f", i.getThanhTien())));
+    // [SỬA]: Thêm tham số tienKhach, tienThua
+    private void hienThiPopupHoaDon(DonHangDTO donHang, long tienKhach, long tienThua) {
+        JDialog dialog = new JDialog(this, "Hóa Đơn Thanh Toán", true);
+        dialog.setSize(500, 650);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        
+        JEditorPane editorPane = new JEditorPane();
+        editorPane.setContentType("text/html");
+        editorPane.setEditable(false);
+        editorPane.setBackground(Color.WHITE);
+        
+        NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+        
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style='font-family: Segoe UI, sans-serif; padding: 20px;'>");
+        html.append("<div style='text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;'>");
+        html.append("<h1 style='color: #007bff; margin: 0;'>MAHIRU SHOP</h1>");
+        html.append("<p style='font-size: 10px; color: gray;'>Địa chỉ: 123 Anime Street, Tokyo-3</p></div>");
+        
+        html.append("<div style='margin-top: 20px;'><table style='width: 100%; font-size: 12px;'>");
+        html.append("<tr><td><b>Mã HĐ:</b> #").append(donHang.getMaDonHang()).append("</td>");
+        html.append("<td style='text-align: right;'><b>Ngày:</b> ").append(sdf.format(donHang.getNgayDat())).append("</td></tr>");
+        html.append("<tr><td><b>Thu ngân:</b> ").append(nguoiDungHienTai.getTenDangNhap()).append("</td>");
+        html.append("<td style='text-align: right;'><b>PTTT:</b> ").append(donHang.getPhuongThucTT()).append("</td></tr>");
+        html.append("</table></div>");
+        
+        html.append("<br><table style='width: 100%; border-collapse: collapse; font-size: 12px;'>");
+        html.append("<tr style='background-color: #f2f2f2; text-align: left;'><th style='padding: 8px; border-bottom: 1px solid #ddd;'>Sản phẩm</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: center;'>SL</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: right;'>Đơn giá</th><th style='padding: 8px; border-bottom: 1px solid #ddd; text-align: right;'>T.Tiền</th></tr>");
+        
+        long tongTienHang = 0;
+        for (GioHangItemDTO item : donHang.getGioHang()) {
+            long thanhTien = (long) item.getThanhTien();
+            tongTienHang += thanhTien;
+            html.append("<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'>").append(item.getFigure().getTen()).append("</td>");
+            html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: center;'>").append(item.getSoLuong()).append("</td>");
+            html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>").append(nf.format(item.getGiaBan())).append("</td>");
+            html.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>").append(nf.format(thanhTien)).append("</td></tr>");
         }
-        sb.append("---------------------------\n"); sb.append("TỔNG TIỀN: ").append(String.format("%,.0f VND", donHang.getTongTien())).append("\n"); sb.append("\nCảm ơn quý khách!");
-        txt.setText(sb.toString()); d.add(new JScrollPane(txt)); d.setVisible(true);
+        html.append("</table>");
+        
+        long tongThucTe = (long) donHang.getTongTien();
+        long giamGia = tongTienHang - tongThucTe;
+        
+        html.append("<div style='margin-top: 15px; text-align: right;'>");
+        html.append("<p style='margin: 5px;'>Tổng tiền hàng: <b>").append(nf.format(tongTienHang)).append("</b></p>");
+        if (giamGia > 0) html.append("<p style='margin: 5px; color: green;'>Giảm giá: -").append(nf.format(giamGia)).append("</p>");
+        html.append("<h2 style='color: #dc3545; margin-top: 10px;'>THANH TOÁN: ").append(nf.format(tongThucTe)).append("</h2>");
+        
+        // --- [MỚI] PHẦN TIỀN THỪA ---
+        if (tienKhach > 0) {
+            html.append("<hr style='border-top: 1px dashed #bbb;'>");
+            html.append("<p style='margin: 5px;'>Tiền khách đưa: <b>").append(nf.format(tienKhach)).append("</b></p>");
+            html.append("<p style='margin: 5px;'>Tiền thừa trả lại: <b>").append(nf.format(tienThua)).append("</b></p>");
+        }
+        // ----------------------------
+        
+        html.append("</div>");
+        html.append("<br><hr><div style='text-align: center; font-style: italic; color: gray; font-size: 11px;'><p>Cảm ơn quý khách!</p></div>");
+        html.append("</body></html>");
+        
+        editorPane.setText(html.toString());
+        dialog.add(new JScrollPane(editorPane), BorderLayout.CENTER);
+        
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBackground(Color.WHITE);
+        
+        JButton btnPrint = new JButton("🖨 In / Xuất PDF");
+        btnPrint.setBackground(new Color(0, 123, 255)); btnPrint.setForeground(Color.WHITE); btnPrint.setFocusPainted(false);
+        btnPrint.addActionListener(e -> {
+            try {
+                boolean complete = editorPane.print();
+                if (complete) {
+                    JOptionPane.showMessageDialog(dialog, "Xuất hóa đơn thành công!");
+                    dialog.dispose();
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "Lỗi khi in ấn: " + ex.getMessage());
+            }
+        });
+        
+        JButton btnClose = new JButton("Đóng");
+        btnClose.addActionListener(e -> dialog.dispose());
+        
+        btnPanel.add(btnPrint); btnPanel.add(btnClose);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     private ImageIcon loadResizedIcon(String filename, int w, int h) {
