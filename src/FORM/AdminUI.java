@@ -211,7 +211,7 @@ public class AdminUI extends JFrame {
                     loadNhaCungCapData();
                     break;
                 case 6: // Khuyến mãi
-                     kmDAL.loadData(kmModel);
+                     loadKhuyenMaiList();
                      break;
                 // Case 7 Báo cáo: Khi bấm nút Xem nó mới load nên ko cần auto
             }
@@ -1740,7 +1740,13 @@ public class AdminUI extends JFrame {
 
         try(Connection conn = db.getConnect(); 
             PreparedStatement ps = conn.prepareStatement("SELECT * FROM figure WHERE id=? OR ten LIKE ? LIMIT 1")) {
-            try { ps.setInt(1, Integer.parseInt(k)); } catch(Exception e) { ps.setInt(1, -1); }
+            
+            // Xử lý input: Nếu là số thì tìm theo ID, nếu chữ thì tìm theo tên
+            try { 
+                ps.setInt(1, Integer.parseInt(k)); 
+            } catch(Exception e) { 
+                ps.setInt(1, -1); // Nếu không phải số thì ID = -1 (không tìm thấy theo ID)
+            }
             ps.setString(2, "%"+k+"%");
             
             ResultSet rs = ps.executeQuery();
@@ -1751,28 +1757,32 @@ public class AdminUI extends JFrame {
                 sanPhamDangChonNhap.setSoLuong(rs.getInt("so_luong"));
                 sanPhamDangChonNhap.setGia(rs.getLong("gia"));
                 sanPhamDangChonNhap.setHinhAnh(rs.getString("hinh_anh"));
-                sanPhamDangChonNhap.setMaNCC(rs.getInt("ma_ncc")); // Lấy NCC của SP
+                sanPhamDangChonNhap.setMaNCC(rs.getInt("ma_ncc")); 
 
                 // Fill UI Info
                 lblKhoId.setText("ID: " + rs.getInt("id"));
-                lblKhoTen.setText("Tên: " + rs.getString("ten"));
+                lblKhoTen.setText("<html>" + rs.getString("ten") + "</html>"); // Bọc html để tự xuống dòng nếu tên dài
                 lblKhoTon.setText("Tồn: " + rs.getInt("so_luong"));
                 lblKhoGia.setText("Giá bán: " + String.format("%,d VND", rs.getLong("gia")));
                 
                 ImageIcon icon = loadProductImage(rs.getString("hinh_anh"));
-                if(icon != null) lblKhoAnh.setIcon(new ImageIcon(icon.getImage().getScaledInstance(100,100,4)));
+                if(icon != null) lblKhoAnh.setIcon(new ImageIcon(icon.getImage().getScaledInstance(90,90,Image.SCALE_SMOOTH)));
                 else { lblKhoAnh.setIcon(null); lblKhoAnh.setText("No IMG"); }
 
-                // [LOGIC MỚI] Tự động chọn NCC và KHÓA lại
+                // [QUAN TRỌNG] Tự động chọn NCC và KHÓA lại để đảm bảo nhập đúng nguồn
                 int maNCC = rs.getInt("ma_ncc");
+                boolean foundNCC = false;
                 for(int i=0; i<cbNhaCungCap.getItemCount(); i++) {
                     NhaCungCapDTO ncc = (NhaCungCapDTO) cbNhaCungCap.getItemAt(i);
                     if(ncc.getMaNCC() == maNCC) {
                         cbNhaCungCap.setSelectedIndex(i);
+                        foundNCC = true;
                         break;
                     }
                 }
-                cbNhaCungCap.setEnabled(false); // Khóa không cho đổi
+                
+                cbNhaCungCap.setEnabled(false); // Khóa không cho đổi NCC
+                if(!foundNCC) JOptionPane.showMessageDialog(this, "Lưu ý: Nhà cung cấp của sản phẩm này đã bị ngừng hợp tác hoặc bị xóa!");
                 
                 txtSoLuongNhap.requestFocus();
             } else {
@@ -1784,36 +1794,49 @@ public class AdminUI extends JFrame {
     private void loadLichSuNhapKho() {
         khoHistoryModel.setRowCount(0);
         
-        // SQL Lấy dữ liệu
-        String sql = "SELECT n.ma_nhap, f.ten, n.so_luong_nhap, n.don_gia_nhap, n.tong_tien_nhap, ncc.ten_ncc, n.ngay_nhap, n.trang_thai " +
-                     "FROM nhapkho n " +
-                     "JOIN figure f ON n.figureId = f.id " +
-                     "JOIN nhacungcap ncc ON n.ma_ncc = ncc.ma_ncc " +
-                     "ORDER BY n.ngay_nhap ASC LIMIT 50"; // Nên để DESC để thấy đơn mới nhất lên đầu
+        String tenSP = txtHistTen.getText().trim();
+        String dateFrom = txtHistDateFrom.getText().trim();
+        String dateTo = txtHistDateTo.getText().trim();
+        
+        int maNCC = 0;
+        if (cbHistNCC != null && cbHistNCC.getSelectedItem() instanceof NhaCungCapDTO) {
+            NhaCungCapDTO ncc = (NhaCungCapDTO) cbHistNCC.getSelectedItem();
+            maNCC = ncc.getMaNCC();
+        }
 
-        try (Connection conn = db.getConnect(); ResultSet rs = conn.createStatement().executeQuery(sql)) {
-            
+        StringBuilder sql = new StringBuilder(
+            "SELECT n.ma_nhap, f.ten, n.so_luong_nhap, n.don_gia_nhap, n.tong_tien_nhap, ncc.ten_ncc, n.ngay_nhap, n.trang_thai " +
+            "FROM nhapkho n " +
+            "JOIN figure f ON n.figureId = f.id " +
+            "JOIN nhacungcap ncc ON n.ma_ncc = ncc.ma_ncc " +
+            "WHERE 1=1 "
+        );
+
+        if (!tenSP.isEmpty()) sql.append(" AND f.ten LIKE '%").append(tenSP).append("%'");
+        if (maNCC > 0) sql.append(" AND n.ma_ncc = ").append(maNCC);
+        if (!dateFrom.isEmpty()) sql.append(" AND DATE(n.ngay_nhap) >= '").append(dateFrom).append("'");
+        if (!dateTo.isEmpty()) sql.append(" AND DATE(n.ngay_nhap) <= '").append(dateTo).append("'");
+
+        sql.append(" ORDER BY n.ngay_nhap ASC LIMIT 100"); // Limit 100 để không load quá nặng
+
+        try (Connection conn = db.getConnect(); ResultSet rs = conn.createStatement().executeQuery(sql.toString())) {
             NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-            // [BỔ SUNG]: Khai báo định dạng ngày giờ
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
             while (rs.next()) {
-                // [ĐÃ SỬA LẠI THỨ TỰ CHO KHỚP VỚI 9 CỘT]
                 khoHistoryModel.addRow(new Object[]{
-                    "PN" + rs.getInt("ma_nhap"),             // 0. Mã
-                    rs.getString("ten"),                     // 1. Sản phẩm
-                    "+" + rs.getInt("so_luong_nhap"),        // 2. SL
-                    nf.format(rs.getLong("don_gia_nhap")),   // 3. Giá nhập
-                    nf.format(rs.getLong("tong_tien_nhap")), // 4. Tổng tiền
-                    rs.getString("ten_ncc"),                 // 5. NCC
-                    sdf.format(rs.getTimestamp("ngay_nhap")),// 6. Ngày (Đã khớp)
-                    rs.getString("trang_thai"),              // 7. Trạng thái
-                    "Hủy"                                    // 8. Nút Hủy
+                    "PN" + rs.getInt("ma_nhap"),
+                    rs.getString("ten"),
+                    "+" + rs.getInt("so_luong_nhap"),
+                    nf.format(rs.getLong("don_gia_nhap")),
+                    nf.format(rs.getLong("tong_tien_nhap")),
+                    rs.getString("ten_ncc"),
+                    sdf.format(rs.getTimestamp("ngay_nhap")),
+                    rs.getString("trang_thai"),
+                    "Hủy"
                 });
             }
-        } catch (Exception e) { 
-            e.printStackTrace(); 
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
     
     private void hienThiPhieuNhapPopup(int maPhieu, FigureDTO sp, String tenNCC, int sl, long gia, long tong) {
@@ -2486,70 +2509,114 @@ public class AdminUI extends JFrame {
         return panel;
     }
     
-    // ================== QUẢN LÝ KHUYẾN MÃI (ĐÃ CẬP NHẬT GIAO DIỆN & STT) ==================
+    // ================== GIAO DIỆN KHUYẾN MÃI (ĐÃ SỬA LỖI HIỂN THỊ) ==================
     private JPanel taoKhuyenMaiPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
         panel.setBackground(Color.WHITE);
 
-        // --- HEADER (ĐỒNG BỘ MÀU SẮC) ---
+        // 1. Header & Form
         JPanel topPanel = new JPanel(new BorderLayout(10, 10));
         topPanel.setBackground(Color.WHITE);
-        topPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
-
+        
         JLabel title = new JLabel("Quản lý Khuyến mãi");
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        topPanel.add(title, BorderLayout.WEST);
+        title.setBorder(new EmptyBorder(0, 0, 10, 0)); // Cách xuống dưới 1 chút
+        topPanel.add(title, BorderLayout.NORTH);
 
-        // --- FORM NHẬP LIỆU (ĐẸP HƠN) ---
+        // --- PANEL FORM NHẬP LIỆU ---
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBackground(Color.WHITE);
-        formPanel.setBorder(BorderFactory.createTitledBorder("Thông tin mã giảm giá"));
+        // Tạo border có tiêu đề
+        formPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.LIGHT_GRAY), "Thông tin mã giảm giá",
+            TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, 
+            new Font("Segoe UI", Font.BOLD, 14), Color.BLACK));
+            
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 10, 5, 10); gbc.fill = GridBagConstraints.HORIZONTAL;
+        // Insets(top, left, bottom, right): Khoảng cách giữa các component
+        gbc.insets = new Insets(10, 10, 10, 10); 
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        txtKMMa = new JTextField(10);
-        txtKMPT = new JTextField(10);
-        txtKMHan = new JTextField(15); txtKMHan.setToolTipText("yyyy-mm-dd");
-        txtKMMoTa = new JTextField(20);
+        // Khởi tạo TextField bằng style chuẩn của app
+        txtKMMa = styleTextField();
+        txtKMPT = styleTextField();
+        txtKMHan = styleTextField(); txtKMHan.setToolTipText("yyyy-mm-dd");
+        txtKMMoTa = styleTextField();
 
-        // Hàng 1
-        gbc.gridx=0; gbc.gridy=0; formPanel.add(new JLabel("Mã Code:"), gbc);
-        gbc.gridx=1; formPanel.add(txtKMMa, gbc);
-        gbc.gridx=2; formPanel.add(new JLabel("% Giảm:"), gbc);
-        gbc.gridx=3; formPanel.add(txtKMPT, gbc);
+        // --- Hàng 1 ---
+        gbc.gridy = 0;
         
-        // Hàng 2
-        gbc.gridx=0; gbc.gridy=1; formPanel.add(new JLabel("Hạn dùng (yyyy-mm-dd):"), gbc);
-        gbc.gridx=1; formPanel.add(txtKMHan, gbc);
-        gbc.gridx=2; formPanel.add(new JLabel("Mô tả:"), gbc);
-        gbc.gridx=3; formPanel.add(txtKMMoTa, gbc);
+        // Cột 1: Label Mã
+        gbc.gridx = 0; gbc.weightx = 0; // Label không giãn
+        formPanel.add(new JLabel("Mã Code:"), gbc);
+        
+        // Cột 2: Input Mã
+        gbc.gridx = 1; gbc.weightx = 1.0; // Input giãn hết mức có thể
+        formPanel.add(txtKMMa, gbc);
+        
+        // Cột 3: Label %
+        gbc.gridx = 2; gbc.weightx = 0;
+        formPanel.add(new JLabel("% Giảm:"), gbc);
+        
+        // Cột 4: Input %
+        gbc.gridx = 3; gbc.weightx = 1.0;
+        formPanel.add(txtKMPT, gbc);
+        
+        // --- Hàng 2 ---
+        gbc.gridy = 1;
+        
+        // Cột 1: Label Hạn
+        gbc.gridx = 0; gbc.weightx = 0;
+        formPanel.add(new JLabel("Hạn dùng (yyyy-mm-dd):"), gbc);
+        
+        // Cột 2: Input Hạn
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        formPanel.add(txtKMHan, gbc);
+        
+        // Cột 3: Label Mô tả
+        gbc.gridx = 2; gbc.weightx = 0;
+        formPanel.add(new JLabel("Mô tả:"), gbc);
+        
+        // Cột 4: Input Mô tả
+        gbc.gridx = 3; gbc.weightx = 1.0;
+        formPanel.add(txtKMMoTa, gbc);
 
-        // Nút bấm (Đồng bộ màu)
+        // --- PANEL NÚT BẤM ---
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(Color.WHITE);
+        btnPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
         
         JButton btnThem = new JButton("Thêm"); btnThem.setBackground(new Color(40, 167, 69)); btnThem.setForeground(Color.WHITE);
-        JButton btnSua = new JButton("Sửa");   btnSua.setBackground(new Color(255, 193, 7)); btnSua.setForeground(Color.WHITE);
-        JButton btnXoa = new JButton("Xóa");   btnXoa.setBackground(new Color(220, 53, 69)); btnXoa.setForeground(Color.WHITE);
+        JButton btnSua = new JButton("Sửa");    btnSua.setBackground(new Color(255, 193, 7));
+        JButton btnXoa = new JButton("Xóa");    btnXoa.setBackground(new Color(220, 53, 69)); btnXoa.setForeground(Color.WHITE);
         JButton btnLamMoi = new JButton("Làm mới"); btnLamMoi.setBackground(new Color(23, 162, 184)); btnLamMoi.setForeground(Color.WHITE);
+
+        // Thêm style cho nút bấm to hơn chút
+        Dimension btnSize = new Dimension(100, 35);
+        btnThem.setPreferredSize(btnSize); btnSua.setPreferredSize(btnSize);
+        btnXoa.setPreferredSize(btnSize); btnLamMoi.setPreferredSize(btnSize);
 
         btnThem.addActionListener(e -> xuLyKhuyenMai("them"));
         btnSua.addActionListener(e -> xuLyKhuyenMai("sua"));
         btnXoa.addActionListener(e -> xuLyKhuyenMai("xoa"));
+        
         btnLamMoi.addActionListener(e -> {
-            kmDAL.loadData(kmModel);
+            loadKhuyenMaiList(); 
             txtKMMa.setText(""); txtKMPT.setText(""); txtKMHan.setText(""); txtKMMoTa.setText("");
         });
 
         btnPanel.add(btnThem); btnPanel.add(btnSua); btnPanel.add(btnXoa); btnPanel.add(btnLamMoi);
 
+        // Add Form và Button vào TopPanel
         topPanel.add(formPanel, BorderLayout.CENTER);
         topPanel.add(btnPanel, BorderLayout.SOUTH);
+        
         panel.add(topPanel, BorderLayout.NORTH);
 
-        // --- BẢNG DỮ LIỆU (THÊM CỘT STT) ---
-        kmModel = new DefaultTableModel(new String[]{"STT", "Mã Code", "% Giảm", "Hạn sử dụng", "Mô tả"}, 0) {
+        // 2. Bảng dữ liệu
+        String[] cols = {"STT", "Mã Code", "% Giảm", "Hạn sử dụng", "Mô tả", "Trạng thái"};
+        kmModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         
@@ -2557,14 +2624,38 @@ public class AdminUI extends JFrame {
         kmTable.setRowHeight(40);
         styleTableHeader(kmTable);
         centerAllTableCells(kmTable);
-        kmTable.getColumnModel().getColumn(0).setPreferredWidth(40); // Cột STT nhỏ
+        kmTable.getColumnModel().getColumn(0).setPreferredWidth(40); 
 
-        // Sự kiện click
+        // Tô màu trạng thái & Căn giữa
+        kmTable.getColumn("Trạng thái").setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                // Gọi super để khởi tạo các thuộc tính cơ bản
+                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                
+                // --- [THÊM DÒNG NÀY ĐỂ CĂN GIỮA] ---
+                l.setHorizontalAlignment(JLabel.CENTER); 
+                
+                // Logic tô màu như cũ
+                String st = (String) v;
+                if ("Hết hạn".equals(st)) {
+                    l.setForeground(Color.RED);
+                } else {
+                    l.setForeground(new Color(40, 167, 69)); // Xanh lá
+                }
+                
+                l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                return l;
+            }
+        });
+
+        // Sự kiện click bảng để đổ dữ liệu lên form
         kmTable.getSelectionModel().addListSelectionListener(e -> {
             int r = kmTable.getSelectedRow();
             if (r >= 0) {
-                txtKMMa.setText(kmTable.getValueAt(r, 1).toString()); // Cột 1 là Mã
-                txtKMPT.setText(kmTable.getValueAt(r, 2).toString());
+                txtKMMa.setText(kmTable.getValueAt(r, 1).toString());
+                String pt = kmTable.getValueAt(r, 2).toString().replace("%", "");
+                txtKMPT.setText(pt);
                 txtKMHan.setText(kmTable.getValueAt(r, 3).toString());
                 Object moTa = kmTable.getValueAt(r, 4);
                 txtKMMoTa.setText(moTa != null ? moTa.toString() : "");
@@ -2573,86 +2664,87 @@ public class AdminUI extends JFrame {
 
         panel.add(new JScrollPane(kmTable), BorderLayout.CENTER);
         
-        // LOAD DỮ LIỆU (CÓ STT)
-        loadKhuyenMaiWithSTT();
+        loadKhuyenMaiList(); // Load lần đầu
         
         return panel;
     }
 
-    // Hàm riêng để load KM có STT
-    private void loadKhuyenMaiWithSTT() {
-        kmModel.setRowCount(0);
-        // Giả sử bạn có hàm getList ở DAL trả về List<DTO>, nếu không dùng cách load trực tiếp từ ResultSet cũng được
-        try (Connection conn = db.getConnect(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT * FROM khuyenmai")) {
-            int stt = 1;
-            while(rs.next()) {
-                kmModel.addRow(new Object[]{
-                    stt++, 
-                    rs.getString("ma"), 
-                    rs.getInt("phan_tram_giam"), 
-                    rs.getString("han_dung"), 
-                    rs.getString("mo_ta")
-                });
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-    }
 
+    // 3. HÀM XỬ LÝ LOGIC THÊM/SỬA/XÓA
     private void xuLyKhuyenMai(String action) {
         String ma = txtKMMa.getText().trim();
         String han = txtKMHan.getText().trim();
         String mota = txtKMMoTa.getText().trim();
         int pt = 0;
         
-        if (ma.isEmpty()) { 
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Khuyến Mãi!"); 
-            return; 
-        }
+        if (ma.isEmpty()) { JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Khuyến Mãi!"); return; }
         
-        // Validate số % giảm (trừ trường hợp xóa thì không cần check kỹ)
         if (!"xoa".equals(action)) {
             try { 
                 pt = Integer.parseInt(txtKMPT.getText().trim()); 
-                if (pt <= 0 || pt > 100) {
-                    JOptionPane.showMessageDialog(this, "% Giảm phải từ 1 đến 100!"); 
-                    return;
-                }
-            } catch (Exception e) { 
-                JOptionPane.showMessageDialog(this, "% Giảm phải là số nguyên!"); 
-                return; 
-            }
+                if (pt <= 0 || pt > 100) throw new Exception();
+            } catch (Exception e) { JOptionPane.showMessageDialog(this, "% Giảm phải là số từ 1-100!"); return; }
             
-            // Validate ngày tháng đơn giản (yyyy-mm-dd)
-            if (!han.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                JOptionPane.showMessageDialog(this, "Hạn dùng phải đúng định dạng: yyyy-MM-dd (Ví dụ: 2025-12-31)");
-                return;
-            }
+            if (!han.matches("\\d{4}-\\d{2}-\\d{2}")) { JOptionPane.showMessageDialog(this, "Hạn dùng sai định dạng: yyyy-MM-dd"); return; }
         }
 
         boolean kq = false;
-        // Gọi xuống DAL để xử lý
-        if ("them".equals(action)) {
-            kq = kmDAL.them(ma, pt, han, mota);
-        } else if ("sua".equals(action)) {
-            kq = kmDAL.sua(ma, pt, han, mota);
-        } else if ("xoa".equals(action)) {
+        if ("them".equals(action)) kq = kmDAL.them(ma, pt, han, mota);
+        else if ("sua".equals(action)) kq = kmDAL.sua(ma, pt, han, mota);
+        else if ("xoa".equals(action)) {
             if (JOptionPane.showConfirmDialog(this, "Xóa mã này?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 kq = kmDAL.xoa(ma);
-            } else {
-                return;
-            }
+            } else return;
         }
 
         if (kq) {
             JOptionPane.showMessageDialog(this, "Thao tác thành công!");
-            kmDAL.loadData(kmModel); // Reload bảng
-            
-            // Reset form sau khi thành công
-            txtKMMa.setText(""); 
-            txtKMPT.setText(""); 
-            txtKMHan.setText(""); 
-            txtKMMoTa.setText("");
+            loadKhuyenMaiList(); // Gọi hàm load mới
+            txtKMMa.setText(""); txtKMPT.setText(""); txtKMHan.setText(""); txtKMMoTa.setText("");
+            triggerRealTimeUpdate(); 
         } else {
-            JOptionPane.showMessageDialog(this, "Thao tác thất bại! (Kiểm tra trùng mã hoặc lỗi kết nối)");
+            JOptionPane.showMessageDialog(this, "Thao tác thất bại!");
+        }
+    }
+    
+    // ================== HÀM PHỤ TRỢ CHO TAB KHUYẾN MÃI ==================
+    private void loadKhuyenMaiList() {
+        // 1. Kiểm tra an toàn
+        if (kmModel == null) return;
+        
+        // 2. Xóa dữ liệu cũ để tránh bị trùng lặp khi reload
+        kmModel.setRowCount(0);
+
+        String sql = "SELECT ma, phan_tram_giam, han_dung, mo_ta FROM khuyenmai ORDER BY han_dung ASC";
+
+        try (Connection conn = db.getConnect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            int stt = 1; // Biến đếm số thứ tự bắt đầu từ 1
+            java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
+
+            while (rs.next()) {
+                // Xử lý logic ngày tháng
+                java.sql.Date hanDung = rs.getDate("han_dung");
+                String trangThai = (hanDung != null && hanDung.before(today)) ? "Hết hạn" : "Còn hạn";
+                String hanDungStr = (hanDung != null) ? hanDung.toString() : "";
+
+                // --- [QUAN TRỌNG] ADD DÒNG MỚI ĐÚNG THỨ TỰ CỘT ---
+                // Cấu trúc bảng: 0.STT | 1.Mã | 2.% Giảm | 3.Hạn SD | 4.Mô tả | 5.Trạng thái
+                kmModel.addRow(new Object[]{
+                    stt++,                              // Cột 0: STT (Tự tăng)
+                    rs.getString("ma"),                 // Cột 1: Mã Code
+                    rs.getInt("phan_tram_giam") + "%",  // Cột 2: % Giảm (Thêm dấu %)
+                    hanDungStr,                         // Cột 3: Hạn sử dụng
+                    rs.getString("mo_ta"),              // Cột 4: Mô tả
+                    trangThai                           // Cột 5: Trạng thái (Logic màu sắc sẽ do Renderer xử lý)
+                });
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi tải dữ liệu khuyến mãi: " + e.getMessage());
         }
     }
     

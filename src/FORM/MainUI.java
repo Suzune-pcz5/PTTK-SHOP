@@ -17,6 +17,7 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.URL;
+import java.sql.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement; // Thêm import
 import java.sql.ResultSet;
@@ -38,22 +39,33 @@ public class MainUI extends JFrame {
     }
 
     // 2. Hàm "Cực đoan": Cho phép bên ngoài ép buộc MainUI cập nhật
+    // 2. Hàm này để AdminUI gọi sang khi có thay đổi
+    // (Không dùng Timer nữa nên hàm này chỉ chạy khi cần thiết)
+    // 2. Hàm "Cực đoan": Cho phép bên ngoài ép buộc MainUI cập nhật
     public static void forceUpdateData() {
+        // Kiểm tra xem MainUI có đang chạy không
         if (instance != null) {
             System.out.println("Admin bắt buộc cập nhật dữ liệu...");
+            
+            // [SỬA LỖI]: Phải dùng "instance." để gọi các biến giao diện
             
             // Nếu đang ở Tab Bán hàng (Index 0)
             if (instance.mainTabs.getSelectedIndex() == 0) {
                 int selectedRow = instance.tblDanhSach.getSelectedRow();
                 int selectedId = -1;
-                if (selectedRow >= 0) {
-                    try { selectedId = Integer.parseInt(instance.tblDanhSach.getValueAt(selectedRow, 0).toString()); } catch(Exception e){}
+                
+                if (selectedRow >= 0 && selectedRow < instance.tblDanhSach.getRowCount()) {
+                    try { 
+                        selectedId = Integer.parseInt(instance.tblDanhSach.getValueAt(selectedRow, 0).toString()); 
+                    } catch(Exception e){}
                 }
 
+                // Gọi các hàm load lại dữ liệu thông qua instance
                 instance.taiDanhSach(); 
                 instance.capNhatGioHang(); 
                 instance.loadKhuyenMaiData();
 
+                // Khôi phục dòng chọn
                 if (selectedId != -1) {
                     for (int i = 0; i < instance.tblDanhSach.getRowCount(); i++) {
                         int id = Integer.parseInt(instance.tblDanhSach.getValueAt(i, 0).toString());
@@ -170,21 +182,25 @@ public class MainUI extends JFrame {
         panel.setPreferredSize(new Dimension(0, 80));
         panel.setBorder(new EmptyBorder(10, 20, 10, 20));
 
+        // 1. Logo
         JLabel logo = new JLabel("MAHIRU.");
         logo.setFont(new Font("Segoe UI", Font.BOLD, 32));
         logo.setForeground(Color.WHITE);
 
+        // 2. Panel Tìm kiếm & Lọc
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         searchPanel.setOpaque(false);
         int h = 35; 
 
+        // Tên
         searchPanel.add(createLabelWhite("Tên:"));
-        txtTenTimKiem = new JTextField(12); txtTenTimKiem.setPreferredSize(new Dimension(120, h));
+        txtTenTimKiem = new JTextField(10); txtTenTimKiem.setPreferredSize(new Dimension(100, h));
         searchPanel.add(txtTenTimKiem);
-
+        
+        // NCC
         searchPanel.add(createLabelWhite("NCC:"));
         cbLocNCC = new JComboBox<>();
-        cbLocNCC.setPreferredSize(new Dimension(100, h));
+        cbLocNCC.setPreferredSize(new Dimension(90, h));
         cbLocNCC.addItem(new NhaCungCapDTO(0, "Tất cả", "", "", "", ""));
         if (nccBLL != null) {
             List<NhaCungCapDTO> list = nccBLL.getListNhaCungCap();
@@ -192,47 +208,47 @@ public class MainUI extends JFrame {
         }
         searchPanel.add(cbLocNCC);
 
+        // Loại
         searchPanel.add(createLabelWhite("Loại:"));
         cbLoai = new JComboBox<>(new String[]{"Tất cả", "Gundam", "Anime", "Game", "Khác"});
-        cbLoai.setPreferredSize(new Dimension(90, h));
+        cbLoai.setPreferredSize(new Dimension(80, h));
         searchPanel.add(cbLoai);
         
+        // [FIX LỖI NULL POINTER] --- Khởi tạo ô nhập giá ---
+        searchPanel.add(createLabelWhite("Giá:"));
+        txtMinGia = new JTextField(5); 
+        txtMinGia.setPreferredSize(new Dimension(60, h));
+        searchPanel.add(txtMinGia);
+        
+        searchPanel.add(createLabelWhite("-"));
+        
+        txtMaxGia = new JTextField(5); 
+        txtMaxGia.setPreferredSize(new Dimension(60, h));
+        searchPanel.add(txtMaxGia);
+        // --------------------------------------------------
+        
+        // Kích thước
         searchPanel.add(createLabelWhite("KT:"));
         cbKichThuoc = new JComboBox<>(new String[]{"Tất cả", "1/6", "1/8", "1/10", "1/12", "Khác"});
         cbKichThuoc.setPreferredSize(new Dimension(70, h));
         searchPanel.add(cbKichThuoc);
 
+        // Nút Tìm
         JButton btnTimKiem = createRedButton("Tìm");
         btnTimKiem.setPreferredSize(new Dimension(70, h));
         btnTimKiem.addActionListener(e -> timKiemNangCao());
         searchPanel.add(btnTimKiem);
 
-        // Panel User
+        // 3. Panel User (Bên phải)
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         right.setOpaque(false);
-        
-        // [MỚI] Nút quay về Admin (Chỉ hiện nếu là Admin)
-        if (nguoiDungHienTai != null && "Admin".equalsIgnoreCase(nguoiDungHienTai.getVaiTro())) {
-            JButton btnAdmin = new JButton("Về trang Quản lý");
-            btnAdmin.setBackground(new Color(23, 162, 184)); // Xanh dương
-            btnAdmin.setForeground(Color.WHITE);
-            btnAdmin.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            btnAdmin.setFocusPainted(false);
-            btnAdmin.setPreferredSize(new Dimension(140, 35)); // Kích thước vừa phải
-            btnAdmin.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            
-            btnAdmin.addActionListener(e -> {
-                this.dispose(); // Đóng MainUI
-                new AdminUI(nguoiDungHienTai).setVisible(true); // Mở lại AdminUI
-            });
-            right.add(btnAdmin);
-        }
         
         if (lblTenNguoiDung == null) {
              lblTenNguoiDung = new JLabel();
              lblTenNguoiDung.setFont(new Font("Segoe UI", Font.BOLD, 16));
              lblTenNguoiDung.setForeground(Color.WHITE);
         }
+        
         lblTenNguoiDung.setText(nguoiDungHienTai != null
           ? "<html>" + nguoiDungHienTai.getTenDangNhap() + " ▼</html>" 
           : "Xin chào, Khách");
@@ -249,6 +265,18 @@ public class MainUI extends JFrame {
             
             JSeparator sep = new JSeparator(); sep.setForeground(Color.GRAY);
             userMenuPopup.add(sep);
+            
+            // Nút về trang quản lý (Nếu là Admin)
+            if ("Admin".equalsIgnoreCase(nguoiDungHienTai.getVaiTro())) {
+                JMenuItem itemAdmin = new JMenuItem("Về trang Quản lý");
+                styleDarkMenuItem(itemAdmin);
+                itemAdmin.setForeground(new Color(100, 200, 255)); // Màu xanh nhạt cho khác biệt
+                itemAdmin.addActionListener(e -> {
+                    this.dispose();
+                    new AdminUI(nguoiDungHienTai).setVisible(true);
+                });
+                userMenuPopup.add(itemAdmin);
+            }
 
             JMenuItem itemLogout = new JMenuItem("Đăng xuất");
             styleDarkMenuItem(itemLogout);
@@ -1076,9 +1104,17 @@ public class MainUI extends JFrame {
         Double min = parseDouble(txtMinGia.getText());
         Double max = parseDouble(txtMaxGia.getText());
         String kt = "Tất cả".equals(cbKichThuoc.getSelectedItem()) ? null : (String) cbKichThuoc.getSelectedItem();
+        
         Integer maNCC = 0;
-        if (cbLocNCC != null && cbLocNCC.getSelectedIndex() > 0) { NhaCungCapDTO ncc = (NhaCungCapDTO) cbLocNCC.getSelectedItem(); maNCC = ncc.getMaNCC(); }
-        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, min, max, kt, maNCC); capNhatBangDanhSach(this.danhSachHienTai);
+        // Kiểm tra null an toàn hơn
+        if (cbLocNCC != null && cbLocNCC.getSelectedItem() instanceof NhaCungCapDTO) {
+             NhaCungCapDTO ncc = (NhaCungCapDTO) cbLocNCC.getSelectedItem();
+             if (ncc.getMaNCC() > 0) maNCC = ncc.getMaNCC();
+        }
+
+        // Gọi BLL
+        this.danhSachHienTai = bll.timKiemNangCao(ten, loai, min, max, kt, maNCC); 
+        capNhatBangDanhSach(this.danhSachHienTai);
     }
     
     private Double parseDouble(String s) { try { return Double.parseDouble(s); } catch(Exception e) { return null; } }
@@ -1089,6 +1125,33 @@ public class MainUI extends JFrame {
         return menuItem;
     }
 
+    // Hàm kiểm tra trạng thái tài khoản (Force Logout nếu bị khóa)
+    private void checkUserStatus() {
+        if (nguoiDungHienTai == null) return;
+        
+        try (Connection conn = new DBConnection().getConnect();
+             PreparedStatement ps = conn.prepareStatement("SELECT trang_thai FROM nguoidung WHERE ma_nguoi_dung = ?")) {
+            
+            ps.setInt(1, nguoiDungHienTai.getMaNguoiDung());
+            ResultSet rs = ps.executeQuery();
+            
+            if (rs.next()) {
+                String status = rs.getString("trang_thai");
+                // Nếu trạng thái khác "Mở" (tức là Tắt/Khóa) -> Đăng xuất ngay
+                if (!"Mở".equalsIgnoreCase(status)) {
+                    // Dừng mọi thao tác và tắt màn hình hiện tại
+                    this.dispose(); 
+                    
+                    // Hiện thông báo
+                    JOptionPane.showMessageDialog(null, "Tài khoản của bạn đã bị khóa bởi Admin!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                    
+                    // Mở lại màn hình đăng nhập
+                    new LoginUI().setVisible(true);
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+    
     // --- INNER CLASSES ---
     private class DetailButtonRenderer extends JButton implements TableCellRenderer {
         public DetailButtonRenderer() { setText("Chi tiết"); setBackground(new Color(23, 162, 184)); setForeground(Color.WHITE); }
@@ -1135,10 +1198,22 @@ public class MainUI extends JFrame {
     private class DeleteButtonEditor extends DefaultCellEditor {
         JButton b; int r;
         public DeleteButtonEditor(JCheckBox cb) {
-            super(cb); b = new JButton("Xóa");
+            super(cb); 
+            b = new JButton("Xóa");
             b.addActionListener(e -> {
+                // [SỬA LẠI LOGIC TẠI ĐÂY]
                 int id = (int)tblGioHang.getModel().getValueAt(r, 0);
-                xoaKhoiGio(id);
+                
+                // Thêm bước xác nhận theo đúng Use Case 2.2.2
+                int confirm = JOptionPane.showConfirmDialog(null, 
+                        "Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?", 
+                        "Xác nhận xóa", 
+                        JOptionPane.YES_NO_OPTION);
+                
+                if (confirm == JOptionPane.YES_OPTION) {
+                    xoaKhoiGio(id); // Chỉ xóa khi chọn Yes
+                }
+                
                 fireEditingStopped();
             });
         }

@@ -8,11 +8,15 @@ import java.util.List;
 
 public class FigureDAL {
 
-    // 1. Lấy tất cả sản phẩm
+    // 1. Lấy tất cả sản phẩm (CHỈ LẤY SẢN PHẨM ĐANG "MỞ")
+    // Hàm này dùng cho MainUI khi vừa mở lên
     public List<FigureDTO> layTatCa() {
         List<FigureDTO> list = new ArrayList<>();
-        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc' cho khớp với Database
-        String sql = "SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc"; 
+        
+        // [SỬA]: Thêm điều kiện WHERE f.trang_thai = 'Mở'
+        String sql = "SELECT f.*, n.ten_ncc FROM figure f " +
+                     "LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc " +
+                     "WHERE f.trang_thai = 'Mở'"; 
 
         try (Connection conn = new DBConnection().getConnect();
              Statement stmt = conn.createStatement();
@@ -27,10 +31,14 @@ public class FigureDAL {
         return list;
     }
 
-    // 2. Tìm theo ID
+    // 2. Tìm theo ID (CHỈ TÌM SẢN PHẨM ĐANG "MỞ")
+    // Hàm này dùng khi MainUI kiểm tra tồn kho trước khi thêm vào giỏ
     public FigureDTO timTheoId(int id) {
-        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc'
-        String sql = "SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc WHERE f.id = ?";
+        // [SỬA]: Thêm điều kiện f.trang_thai = 'Mở'
+        String sql = "SELECT f.*, n.ten_ncc FROM figure f " +
+                     "LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc " +
+                     "WHERE f.id = ? AND f.trang_thai = 'Mở'";
+                     
         try (Connection conn = new DBConnection().getConnect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
@@ -41,14 +49,19 @@ public class FigureDAL {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
+        return null; // Nếu bị khóa (Tắt), sẽ trả về null -> MainUI báo lỗi đúng logic
     }
 
-    // 3. Tìm kiếm nâng cao
+    // 3. Tìm kiếm nâng cao (CHỈ TÌM SẢN PHẨM ĐANG "MỞ")
+    // Hàm này dùng cho bộ lọc bên MainUI
     public List<FigureDTO> timKiemNangCao(String ten, String loai, Double min, Double max, String kt, Integer maNCC) {
         List<FigureDTO> list = new ArrayList<>();
-        // [FIX]: Sửa 'n.id_ncc' thành 'n.ma_ncc'
-        StringBuilder sql = new StringBuilder("SELECT f.*, n.ten_ncc FROM figure f LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc WHERE 1=1");
+        
+        // [SỬA]: Thêm điều kiện WHERE f.trang_thai = 'Mở' ngay từ đầu
+        StringBuilder sql = new StringBuilder(
+            "SELECT f.*, n.ten_ncc FROM figure f " +
+            "LEFT JOIN nhacungcap n ON f.ma_ncc = n.ma_ncc " +
+            "WHERE f.trang_thai = 'Mở'");
 
         if (ten != null && !ten.isEmpty()) sql.append(" AND f.ten LIKE '%").append(ten).append("%'");
         if (loai != null) sql.append(" AND f.loai = '").append(loai).append("'");
@@ -56,12 +69,10 @@ public class FigureDAL {
         if (max != null) sql.append(" AND f.gia <= ").append(max);
         if (kt != null) sql.append(" AND f.kich_thuoc = '").append(kt).append("'");
         
-        // Logic lọc Nhà cung cấp
         if (maNCC != null && maNCC > 0) {
             sql.append(" AND f.ma_ncc = ").append(maNCC);
         }
         
-        // Sắp xếp
         sql.append(" ORDER BY f.id ASC");
 
         try (Connection conn = new DBConnection().getConnect();
@@ -77,7 +88,7 @@ public class FigureDAL {
         return list;
     }
 
-    // 4. Hàm map dữ liệu (An toàn hơn)
+    // 4. Hàm map dữ liệu (Helper)
     private FigureDTO mapRowToDTO(ResultSet rs) throws SQLException {
         FigureDTO f = new FigureDTO();
         f.setId(rs.getInt("id"));
@@ -90,7 +101,6 @@ public class FigureDAL {
         f.setHinhAnh(rs.getString("hinh_anh"));
         f.setMaNCC(rs.getInt("ma_ncc")); 
         
-        // Lấy tên NCC (Xử lý ngoại lệ nếu cột không tồn tại hoặc null)
         try {
             String tenNCC = rs.getString("ten_ncc");
             f.setTenNCC(tenNCC != null ? tenNCC : "Chưa rõ");
@@ -100,7 +110,7 @@ public class FigureDAL {
         return f;
     }
     
-    // 5. Cập nhật số lượng (Cho nhập kho/thanh toán)
+    // 5. Cập nhật số lượng (Hàm này không cần check 'Mở' vì Admin vẫn được nhập hàng cho SP đã khóa)
     public boolean capNhatSoLuong(int figureId, int quantityChange) {
         String sql = "UPDATE figure SET so_luong = so_luong + ? WHERE id = ?";
         try (Connection conn = new DBConnection().getConnect();
@@ -115,7 +125,7 @@ public class FigureDAL {
             return false;
         }
     }
-    
+
     // 6. Xóa sản phẩm (Chỉ xóa được nếu chưa có giao dịch)
     public boolean xoaSanPham(int id) {
         try (Connection conn = new DBConnection().getConnect();
@@ -123,7 +133,7 @@ public class FigureDAL {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            // Lỗi do dính khóa ngoại (đã bán/nhập)
+            // Lỗi do dính khóa ngoại (đã bán/nhập) -> Trả về false
             return false;
         }
     }
