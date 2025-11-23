@@ -1838,62 +1838,111 @@ public class AdminUI extends JFrame {
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
-    
+
+    // ================== POPUP PHIẾU NHẬP KHO (BẢN FINAL STABLE - KHÔNG CẮT CHỮ) ==================
     private void hienThiPhieuNhapPopup(int maPhieu, FigureDTO sp, String tenNCC, int sl, long gia, long tong) {
         JDialog d = new JDialog(this, "Phiếu Nhập Kho", true);
-        d.setSize(450, 550);
+        // 1. Kích thước 430x680: Chuẩn khổ giấy in nhiệt, đủ rộng để không cắt chữ
+        d.setSize(430, 680); 
         d.setLocationRelativeTo(this);
         d.getContentPane().setBackground(Color.WHITE);
         d.setLayout(new BorderLayout());
+
+        // --- PANEL CHÍNH ---
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Color.WHITE);
         
-        JPanel p = new JPanel(); p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setBackground(Color.WHITE); p.setBorder(new EmptyBorder(20, 30, 20, 30));
-        
-        // Header
-        JLabel title = new JLabel("PHIẾU NHẬP KHO", JLabel.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22)); title.setAlignmentX(Component.CENTER_ALIGNMENT);
-        p.add(title); p.add(Box.createVerticalStrut(5));
-        
-        JLabel sub = new JLabel("Mã phiếu: PN" + maPhieu, JLabel.CENTER);
-        sub.setAlignmentX(Component.CENTER_ALIGNMENT);
-        p.add(sub); p.add(Box.createVerticalStrut(20));
-        
-        // Info NCC
-        p.add(new JLabel("Nhà cung cấp: " + tenNCC));
-        p.add(new JLabel("Người nhập: " + currentUser.getTenDangNhap()));
-        p.add(new JLabel("Ngày nhập: " + new java.util.Date().toString()));
-        p.add(Box.createVerticalStrut(10));
-        p.add(new JSeparator());
-        p.add(Box.createVerticalStrut(10));
-        
-        // Item Details
+        // [QUAN TRỌNG] Padding lề: Trên 10, Trái 25, Dưới 10, Phải 25
+        // Tổng chiều rộng 430 - 50 (lề) = 380px cho nội dung -> Vừa đẹp, không bị tràn
+        p.setBorder(new EmptyBorder(10, 25, 10, 25));
+
+        // Format dữ liệu
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        String ngayNhap = sdf.format(new java.util.Date());
         NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-        p.add(new JLabel("Sản phẩm: " + sp.getTen()));
-        p.add(Box.createVerticalStrut(5));
+
+        // --- HTML CONTENT ---
+        StringBuilder html = new StringBuilder();
+        html.append("<html>");
+        // Body width 100% để tự co giãn trong vùng an toàn 380px
+        html.append("<body style='font-family: Segoe UI; color: #333; width: 100%;'>");
         
-        JPanel row = new JPanel(new GridLayout(1, 2)); row.setBackground(Color.WHITE);
-        row.add(new JLabel("Số lượng: " + sl));
-        row.add(new JLabel("Đơn giá: " + nf.format(gia)));
-        p.add(row);
+        // HEADER
+        html.append("<center>");
+        html.append("<h2 style='color: #007bff; margin: 0; font-size: 22px;'>MAHIRU SHOP</h2>");
+        html.append("<i style='font-size: 12px; color: gray;'>Phiếu nhập kho</i>");
+        html.append("<hr style='border: 1px solid #333; width: 100%; margin: 10px 0;'>");
+        html.append("</center>");
+
+        // INFO BLOCK
+        html.append("<table width='100%' style='font-size: 13px; margin-bottom: 10px;'>");
+        html.append("<tr>");
+        html.append("<td width='50%'><b>Mã Phiếu:</b> #PN").append(maPhieu).append("</td>");
+        html.append("<td width='50%' align='right'><b>Ngày:</b> ").append(ngayNhap).append("</td>");
+        html.append("</tr>");
+        html.append("<tr>");
+        html.append("<td><b>Người nhập:</b> ").append(currentUser.getTenDangNhap()).append("</td>");
+        html.append("<td align='right'><b>NCC:</b> ").append(tenNCC).append("</td>");
+        html.append("</tr>");
+        html.append("</table>");
+
+        // TABLE SẢN PHẨM
+        html.append("<table width='100%' cellpadding='5' cellspacing='0' style='border-collapse: collapse; font-size: 13px;'>");
         
-        p.add(Box.createVerticalStrut(20));
-        p.add(new JSeparator());
-        p.add(Box.createVerticalStrut(10));
+        // Header hàng (Nền xám)
+        html.append("<tr style='background-color: #f2f2f2;'>");
+        html.append("<th align='left' width='40%' style='padding: 5px; border-bottom: 1px solid #ccc;'>Sản phẩm</th>");
+        html.append("<th align='center' width='15%' style='border-bottom: 1px solid #ccc;'>SL</th>");
+        html.append("<th align='right' width='20%' style='border-bottom: 1px solid #ccc;'>Đơn giá</th>");
+        html.append("<th align='right' width='25%' style='padding: 5px; border-bottom: 1px solid #ccc;'>T.Tiền</th>"); // Viết tắt T.Tiền cho gọn
+        html.append("</tr>");
         
-        // Total
-        JLabel lTotal = new JLabel("TỔNG TIỀN: " + nf.format(tong));
-        lTotal.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lTotal.setForeground(new Color(40, 167, 69));
-        lTotal.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        p.add(lTotal);
+        // Nội dung hàng
+        html.append("<tr>");
+        html.append("<td style='padding: 10px 5px; border-bottom: 1px solid #eee;'><b>").append(sp.getTen()).append("</b></td>");
+        html.append("<td align='center' style='border-bottom: 1px solid #eee;'>").append(sl).append("</td>");
+        html.append("<td align='right' style='border-bottom: 1px solid #eee;'>").append(nf.format(gia)).append("</td>");
+        html.append("<td align='right' style='padding-right: 5px; border-bottom: 1px solid #eee;'><b>").append(nf.format(tong)).append("</b></td>");
+        html.append("</tr>");
+        html.append("</table>");
+
+        // TỔNG TIỀN
+        html.append("<br>");
+        html.append("<table width='100%'>");
+        html.append("<tr><td align='right' style='font-size: 13px;'>Tổng tiền nhập: <b>").append(nf.format(tong)).append("</b></td></tr>");
+        html.append("<tr><td align='right' style='font-size: 18px; color: #dc3545; font-weight: bold; padding-top: 5px;'>TỔNG CỘNG: ").append(nf.format(tong)).append("</td></tr>");
+        html.append("</table>");
         
+        // Footer
+        html.append("<hr style='border: 1px solid #333; margin-top: 25px;'>");
+        html.append("<center><i style='font-size: 11px; color: gray;'>Xác nhận nhập kho thành công!</i></center>");
+        html.append("</body></html>");
+
+        JLabel lblContent = new JLabel(html.toString());
+        
+        // Dùng BorderLayout.NORTH để đẩy nội dung lên trên
+        p.add(lblContent, BorderLayout.NORTH);
+        
+        // Add trực tiếp vào Dialog
         d.add(p, BorderLayout.CENTER);
-        
-        JButton bClose = new JButton("Đóng");
+
+        // --- NÚT BẤM ---
+        JButton bClose = new JButton("In phiếu nhập");
+        bClose.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        bClose.setBackground(new Color(0, 123, 255));
+        bClose.setForeground(Color.WHITE);
+        bClose.setFocusPainted(false);
+        bClose.setPreferredSize(new Dimension(150, 45));
+        bClose.setCursor(new Cursor(Cursor.HAND_CURSOR));
         bClose.addActionListener(e -> d.dispose());
-        JPanel bP = new JPanel(); bP.setBackground(Color.WHITE); bP.add(bClose);
-        d.add(bP, BorderLayout.SOUTH);
         
+        JPanel bP = new JPanel(); 
+        bP.setBackground(Color.WHITE); 
+        bP.setBorder(new EmptyBorder(0, 0, 20, 0));
+        bP.add(bClose);
+        
+        d.add(bP, BorderLayout.SOUTH);
+
         d.setVisible(true);
     }
     
@@ -2510,6 +2559,7 @@ public class AdminUI extends JFrame {
     }
     
     // ================== GIAO DIỆN KHUYẾN MÃI (ĐÃ SỬA LỖI HIỂN THỊ) ==================
+    // ================== GIAO DIỆN KHUYẾN MÃI (FIX LỖI VOID TYPE) ==================
     private JPanel taoKhuyenMaiPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -2521,24 +2571,21 @@ public class AdminUI extends JFrame {
         
         JLabel title = new JLabel("Quản lý Khuyến mãi");
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        title.setBorder(new EmptyBorder(0, 0, 10, 0)); // Cách xuống dưới 1 chút
+        title.setBorder(new EmptyBorder(0, 0, 10, 0));
         topPanel.add(title, BorderLayout.NORTH);
 
         // --- PANEL FORM NHẬP LIỆU ---
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBackground(Color.WHITE);
-        // Tạo border có tiêu đề
         formPanel.setBorder(BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(Color.LIGHT_GRAY), "Thông tin mã giảm giá",
             TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, 
             new Font("Segoe UI", Font.BOLD, 14), Color.BLACK));
             
         GridBagConstraints gbc = new GridBagConstraints();
-        // Insets(top, left, bottom, right): Khoảng cách giữa các component
         gbc.insets = new Insets(10, 10, 10, 10); 
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Khởi tạo TextField bằng style chuẩn của app
         txtKMMa = styleTextField();
         txtKMPT = styleTextField();
         txtKMHan = styleTextField(); txtKMHan.setToolTipText("yyyy-mm-dd");
@@ -2546,41 +2593,17 @@ public class AdminUI extends JFrame {
 
         // --- Hàng 1 ---
         gbc.gridy = 0;
-        
-        // Cột 1: Label Mã
-        gbc.gridx = 0; gbc.weightx = 0; // Label không giãn
-        formPanel.add(new JLabel("Mã Code:"), gbc);
-        
-        // Cột 2: Input Mã
-        gbc.gridx = 1; gbc.weightx = 1.0; // Input giãn hết mức có thể
-        formPanel.add(txtKMMa, gbc);
-        
-        // Cột 3: Label %
-        gbc.gridx = 2; gbc.weightx = 0;
-        formPanel.add(new JLabel("% Giảm:"), gbc);
-        
-        // Cột 4: Input %
-        gbc.gridx = 3; gbc.weightx = 1.0;
-        formPanel.add(txtKMPT, gbc);
+        gbc.gridx = 0; gbc.weightx = 0; formPanel.add(new JLabel("Mã Code:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0; formPanel.add(txtKMMa, gbc);
+        gbc.gridx = 2; gbc.weightx = 0; formPanel.add(new JLabel("% Giảm:"), gbc);
+        gbc.gridx = 3; gbc.weightx = 1.0; formPanel.add(txtKMPT, gbc);
         
         // --- Hàng 2 ---
         gbc.gridy = 1;
-        
-        // Cột 1: Label Hạn
-        gbc.gridx = 0; gbc.weightx = 0;
-        formPanel.add(new JLabel("Hạn dùng (yyyy-mm-dd):"), gbc);
-        
-        // Cột 2: Input Hạn
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        formPanel.add(txtKMHan, gbc);
-        
-        // Cột 3: Label Mô tả
-        gbc.gridx = 2; gbc.weightx = 0;
-        formPanel.add(new JLabel("Mô tả:"), gbc);
-        
-        // Cột 4: Input Mô tả
-        gbc.gridx = 3; gbc.weightx = 1.0;
-        formPanel.add(txtKMMoTa, gbc);
+        gbc.gridx = 0; gbc.weightx = 0; formPanel.add(new JLabel("Hạn dùng (yyyy-mm-dd):"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0; formPanel.add(txtKMHan, gbc);
+        gbc.gridx = 2; gbc.weightx = 0; formPanel.add(new JLabel("Mô tả:"), gbc);
+        gbc.gridx = 3; gbc.weightx = 1.0; formPanel.add(txtKMMoTa, gbc);
 
         // --- PANEL NÚT BẤM ---
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -2592,7 +2615,6 @@ public class AdminUI extends JFrame {
         JButton btnXoa = new JButton("Xóa");    btnXoa.setBackground(new Color(220, 53, 69)); btnXoa.setForeground(Color.WHITE);
         JButton btnLamMoi = new JButton("Làm mới"); btnLamMoi.setBackground(new Color(23, 162, 184)); btnLamMoi.setForeground(Color.WHITE);
 
-        // Thêm style cho nút bấm to hơn chút
         Dimension btnSize = new Dimension(100, 35);
         btnThem.setPreferredSize(btnSize); btnSua.setPreferredSize(btnSize);
         btnXoa.setPreferredSize(btnSize); btnLamMoi.setPreferredSize(btnSize);
@@ -2608,7 +2630,6 @@ public class AdminUI extends JFrame {
 
         btnPanel.add(btnThem); btnPanel.add(btnSua); btnPanel.add(btnXoa); btnPanel.add(btnLamMoi);
 
-        // Add Form và Button vào TopPanel
         topPanel.add(formPanel, BorderLayout.CENTER);
         topPanel.add(btnPanel, BorderLayout.SOUTH);
         
@@ -2626,30 +2647,18 @@ public class AdminUI extends JFrame {
         centerAllTableCells(kmTable);
         kmTable.getColumnModel().getColumn(0).setPreferredWidth(40); 
 
-        // Tô màu trạng thái & Căn giữa
         kmTable.getColumn("Trạng thái").setCellRenderer(new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
-                // Gọi super để khởi tạo các thuộc tính cơ bản
-                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
-                
-                // --- [THÊM DÒNG NÀY ĐỂ CĂN GIỮA] ---
-                l.setHorizontalAlignment(JLabel.CENTER); 
-                
-                // Logic tô màu như cũ
-                String st = (String) v;
-                if ("Hết hạn".equals(st)) {
-                    l.setForeground(Color.RED);
-                } else {
-                    l.setForeground(new Color(40, 167, 69)); // Xanh lá
-                }
-                
+            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel l = (JLabel)super.getTableCellRendererComponent(t, v, s, f, r, c);
+                l.setHorizontalAlignment(JLabel.CENTER);
+                String st = (String)v;
+                if("Hết hạn".equals(st)) l.setForeground(Color.RED);
+                else l.setForeground(new Color(40, 167, 69));
                 l.setFont(new Font("Segoe UI", Font.BOLD, 12));
                 return l;
             }
         });
 
-        // Sự kiện click bảng để đổ dữ liệu lên form
         kmTable.getSelectionModel().addListSelectionListener(e -> {
             int r = kmTable.getSelectedRow();
             if (r >= 0) {
@@ -2664,9 +2673,9 @@ public class AdminUI extends JFrame {
 
         panel.add(new JScrollPane(kmTable), BorderLayout.CENTER);
         
-        loadKhuyenMaiList(); // Load lần đầu
+        loadKhuyenMaiList(); 
         
-        return panel;
+        return panel; // <--- QUAN TRỌNG: PHẢI CÓ DÒNG NÀY
     }
 
 
