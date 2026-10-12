@@ -63,4 +63,8 @@ public class FigureBLL {
     public FigureDTO timTheoId(int id) {
         return dal.timTheoId(id);
     }
+    
+    public boolean xoaSanPham(int id) {
+        return dal.xoaSanPham(id);
+    }
 }

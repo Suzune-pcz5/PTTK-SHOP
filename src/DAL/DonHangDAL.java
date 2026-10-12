@@ -152,9 +152,11 @@ public class DonHangDAL {
         return chiTiet;
     }
 
-    /* ---------- HỦY ĐƠN HÀNG (trigger sẽ tự cộng lại kho) ---------- */
+    /* ---------- HỦY ĐƠN HÀNG (SỬA LẠI SQL) ---------- */
     public boolean huyDonHang(int maDonHang) {
-        String sql = "UPDATE donhang SET trang_thai = 'DaHuy' WHERE ma_don_hang = ? AND trang_thai = 'DaThanhToan'";
+        // [FIX]: Sửa 'DaHuy' thành 'Đã hủy' và 'DaThanhToan' thành 'Đã thanh toán' cho khớp MySQL
+        String sql = "UPDATE donhang SET trang_thai = 'Đã hủy' WHERE ma_don_hang = ? AND trang_thai = 'Đã thanh toán'";
+        
         try (Connection conn = db.getConnect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, maDonHang);

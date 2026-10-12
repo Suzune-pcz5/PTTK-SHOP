@@ -64,4 +64,15 @@ public class NhaCungCapDAL {
             return ps.executeUpdate() > 0;
         } catch (Exception e) { return false; }
     }
+    
+    // 5. Xóa nhà cung cấp
+    public boolean xoaNhaCungCap(int maNCC) {
+        try (Connection conn = new DBConnection().getConnect();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM nhacungcap WHERE ma_ncc = ?")) {
+            ps.setInt(1, maNCC);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            return false;
+        }
+    }
 }

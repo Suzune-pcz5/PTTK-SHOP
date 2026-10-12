@@ -1,76 +1,74 @@
 package DAL;
 
-import DTO.KhuyenMaiDTO;
 import Database.DBConnection;
-
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.*;
+import javax.swing.table.DefaultTableModel;
 
 public class KhuyenMaiDAL {
     private DBConnection db = new DBConnection();
 
-    public List<KhuyenMaiDTO> layTatCa() {
-        List<KhuyenMaiDTO> danhSach = new ArrayList<>();
+    // 1. Hàm loadData (Dùng để đổ dữ liệu vào bảng)
+    public void loadData(DefaultTableModel model) {
+        model.setRowCount(0);
         String sql = "SELECT * FROM khuyenmai";
         try (Connection conn = db.getConnect();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            if (conn == null) {
-                System.err.println("Không thể kết nối cơ sở dữ liệu trong layTatCa()");
-                return danhSach;
-            }
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                KhuyenMaiDTO km = new KhuyenMaiDTO();
-                km.setMa(rs.getString("ma"));
-                km.setPhanTramGiam(rs.getDouble("phan_tram_giam"));
-                km.setHanDung(rs.getDate("han_dung"));
-                danhSach.add(km);
+                model.addRow(new Object[]{
+                    rs.getString("ma"),
+                    rs.getInt("phan_tram_giam"),
+                    rs.getString("han_dung"),
+                    rs.getString("mo_ta")
+                });
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi truy vấn danh sách khuyến mãi: " + e.getMessage());
             e.printStackTrace();
         }
-        return danhSach;
     }
 
-    public boolean themKhuyenMai(KhuyenMaiDTO km) {
-        String sql = "INSERT INTO khuyenmai (ma, phan_tram_giam, han_dung) VALUES (?, ?, ?)";
+    // 2. Hàm them (Thêm khuyến mãi mới)
+    public boolean them(String ma, int pt, String han, String mota) {
+        String sql = "INSERT INTO khuyenmai (ma, phan_tram_giam, han_dung, mo_ta) VALUES (?, ?, ?, ?)";
         try (Connection conn = db.getConnect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            if (conn == null) {
-                System.err.println("Không thể kết nối cơ sở dữ liệu trong themKhuyenMai()");
-                return false;
-            }
-            ps.setString(1, km.getMa());
-            ps.setDouble(2, km.getPhanTramGiam());
-            ps.setDate(3, (Date) km.getHanDung());
+            ps.setString(1, ma);
+            ps.setInt(2, pt);
+            ps.setString(3, han);
+            ps.setString(4, mota);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("Lỗi thêm mã khuyến mãi: " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
     }
 
-    public boolean xoaKhuyenMai(String ma) {
-        String sql = "DELETE FROM khuyenmai WHERE ma = ?";
+    // 3. Hàm sua (Cập nhật khuyến mãi)
+    public boolean sua(String ma, int pt, String han, String mota) {
+        String sql = "UPDATE khuyenmai SET phan_tram_giam=?, han_dung=?, mo_ta=? WHERE ma=?";
         try (Connection conn = db.getConnect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            if (conn == null) {
-                System.err.println("Không thể kết nối cơ sở dữ liệu trong xoaKhuyenMai()");
-                return false;
-            }
+            ps.setInt(1, pt);
+            ps.setString(2, han);
+            ps.setString(3, mota);
+            ps.setString(4, ma);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // 4. Hàm xoa (Xóa khuyến mãi)
+    public boolean xoa(String ma) {
+        String sql = "DELETE FROM khuyenmai WHERE ma=?";
+        try (Connection conn = db.getConnect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, ma);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("Lỗi xóa mã khuyến mãi: " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
     }
 }
